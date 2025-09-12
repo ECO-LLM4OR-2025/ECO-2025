@@ -1,0 +1,125 @@
+import sys
+
+# Problem data
+E = [1, 3, 5]                # Earliest landing times
+L = [10, 12, 15]             # Latest landing times
+T = [4, 8, 14]               # Target landing times
+alpha = [10, 20, 30]         # Penalty per unit tardiness (after target)
+beta = [5, 10, 15]           # Penalty per unit earliness (before target)
+sep = [
+    [0, 2, 3],
+    [2, 0, 4],
+    [3, 4, 0]
+]
+n = len(E)
+I = range(n)
+
+# Try importing Gurobi; if it fails, fall back to PuLP
+try:
+    import gurobipy as gp
+    from gurobipy import GRB
+    use_gurobi = True
+except ImportError:
+    use_gurobi = False
+
+if use_gurobi:
+    # ------------------------
+    # Build and solve with Gurobi
+    # ------------------------
+    try:
+        model = gp.Model("AircraftLanding")
+        model.setParam("OutputFlag", 1)  # Enable solver output
+    except Exception as e:
+        sys.stderr.write(f"ERROR: Unable to create Gurobi model: {e}\n")
+        sys.exit(1)
+
+    # Decision variables
+    x = {}        # landing times
+    eplus = {}    # tardiness (after target)
+    eminus = {}   # earliness (before target)
+    for i in I:
+        x[i] = model.addVar(lb=E[i], ub=L[i], name=f"x_{i}")
+        eplus[i] = model.addVar(lb=0.0, name=f"eplus_{i}")
+        eminus[i] = model.addVar(lb=0.0, name=f"eminus_{i}")
+    model.update()
+
+    # Balance constraints: x[i] - T[i] = eplus[i] - eminus[i]
+    for i in I:
+        model.addConstr(x[i] - T[i] == eplus[i] - eminus[i],
+                        name=f"balance_{i}")
+
+    # Separation constraints for fixed order 0->1->2
+    for i in I:
+        for j in I:
+            if i < j:
+                model.addConstr(x[j] >= x[i] + sep[i][j],
+                                name=f"sep_{i}_{j}")
+
+    # Objective: minimize sum(alpha[i]*eplus[i] + beta[i]*eminus[i])
+    model.setObjective(
+        gp.quicksum(alpha[i] * eplus[i] + beta[i] * eminus[i] for i in I),
+        GRB.MINIMIZE
+    )
+
+    # Optimize
+    model.optimize()
+
+    # Check optimization result
+    if model.Status != GRB.OPTIMAL:
+        sys.stderr.write(f"ERROR: Gurobi did not reach optimality (status {model.Status}).\n")
+        sys.exit(2)
+
+    opt_val = model.ObjVal
+
+else:
+    # ------------------------
+    # Build and solve with PuLP
+    # ------------------------
+    try:
+        import pulp
+    except ImportError:
+        sys.stderr.write("ERROR: Neither Gurobi nor PuLP is available.\n")
+        sys.exit(1)
+
+    # Define PuLP problem
+    model = pulp.LpProblem("AircraftLanding", pulp.LpMinimize)
+
+    # Decision variables
+    x = {}
+    eplus = {}
+    eminus = {}
+    for i in I:
+        x[i] = pulp.LpVariable(f"x_{i}", lowBound=E[i], upBound=L[i], cat="Continuous")
+        eplus[i] = pulp.LpVariable(f"eplus_{i}", lowBound=0, cat="Continuous")
+        eminus[i] = pulp.LpVariable(f"eminus_{i}", lowBound=0, cat="Continuous")
+
+    # Balance constraints: x[i] - T[i] = eplus[i] - eminus[i]
+    for i in I:
+        model.addConstraint(x[i] - T[i] == eplus[i] - eminus[i], name=f"balance_{i}")
+
+    # Separation constraints
+    for i in I:
+        for j in I:
+            if i < j:
+                model.addConstraint(x[j] >= x[i] + sep[i][j], name=f"sep_{i}_{j}")
+
+    # Objective
+    model += pulp.lpSum(alpha[i] * eplus[i] + beta[i] * eminus[i] for i in I)
+
+    # Solve with CBC
+    solve_status = model.solve(pulp.PULP_CBC_CMD(msg=1))
+
+    # Check result
+    if pulp.LpStatus[solve_status] != "Optimal":
+        sys.stderr.write(f"ERROR: PuLP solver status: {pulp.LpStatus[solve_status]}\n")
+        sys.exit(2)
+
+    opt_val = pulp.value(model.objective)
+
+# Write the optimal value to file (numeric only)
+try:
+    with open("ref_optimal_value.txt", "w") as f:
+        f.write(f"{opt_val}")
+except IOError as e:
+    sys.stderr.write(f"ERROR: Could not write to file: {e}\n")
+    sys.exit(3)

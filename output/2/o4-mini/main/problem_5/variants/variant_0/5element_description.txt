@@ -1,0 +1,28 @@
+Sets:
+Products P = {hardwood, vinyl}
+
+Variables:
+For each p in P:
+  x_p  continuous ≥ 0  # square feet produced of product p
+
+Parameters:
+profit_h = 2.5     # profit per square foot of hardwood
+profit_v = 3.0     # profit per square foot of vinyl
+demand_h_min = 20000   # minimum demand of hardwood (sq ft)
+demand_v_min = 10000   # minimum demand of vinyl (sq ft)
+ship_total_min = 60000 # minimum total shipped sq ft
+prod_h_max = 50000     # maximum production capacity of hardwood (sq ft)
+prod_v_max = 30000     # maximum production capacity of vinyl (sq ft)
+
+Constraints:
+1. Demand satisfaction
+   x_h ≥ demand_h_min
+   x_v ≥ demand_v_min
+2. Shipping contract
+   x_h + x_v ≥ ship_total_min
+3. Production capacity
+   x_h ≤ prod_h_max
+   x_v ≤ prod_v_max
+
+Objective:
+Maximize total profit = profit_h * x_h + profit_v * x_v

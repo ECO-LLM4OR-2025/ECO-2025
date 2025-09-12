@@ -1,0 +1,83 @@
+=====
+# code starts
+import gurobipy as gp
+from gurobipy import GRB
+
+# Data
+jobs = [1, 2, 3]
+positions = [1, 2, 3]
+machines = [1, 2]
+# processing time for job j on machine m
+proces_time = {
+    (1, 1): 1, (1, 2): 3,
+    (2, 1): 2, (2, 2): 2,
+    (3, 1): 3, (3, 2): 1
+}
+
+# Model
+model = gp.Model("flowshop_scheduling")
+
+# Decision variables
+# x[j,p] = 1 if job j is assigned to position p in the sequence
+x = model.addVars(jobs, positions, vtype=GRB.BINARY, name="x")
+# C[p,m] is completion time of the job in position p on machine m
+C = model.addVars(positions, machines, lb=0.0, vtype=GRB.CONTINUOUS, name="C")
+# makespan
+Cmax = model.addVar(lb=0.0, vtype=GRB.CONTINUOUS, name="Cmax")
+
+# Constraints
+
+# 1) Each job is assigned to exactly one position
+model.addConstrs((gp.quicksum(x[j, p] for p in positions) == 1
+                  for j in jobs), name="AssignJob")
+
+# 2) Each position has exactly one job
+model.addConstrs((gp.quicksum(x[j, p] for j in jobs) == 1
+                  for p in positions), name="AssignPosition")
+
+# 3) Flow shop sequencing constraints
+# Machine 1 (m=1)
+for p in positions:
+    # processing time of the job in position p on machine 1
+    PT = gp.quicksum(proces_time[j, 1] * x[j, p] for j in jobs)
+    if p == 1:
+        # first job on machine 1: start at time zero
+        model.addConstr(C[p, 1] >= PT, name=f"C_{p}_1_first")
+    else:
+        # sequence constraint on machine 1
+        model.addConstr(C[p, 1] >= C[p-1, 1] + PT, name=f"C_{p}_1_seq")
+
+# For machines m > 1
+for m in machines:
+    if m == 1:
+        continue
+    for p in positions:
+        # precedence: a job on machine m cannot finish before it finishes on machine m-1
+        PT = gp.quicksum(proces_time[j, m] * x[j, p] for j in jobs)
+        model.addConstr(C[p, m] >= C[p, m-1] + PT, name=f"C_{p}_{m}_flow")
+
+# Sequence constraint for each machine m > 1
+for m in machines:
+    for p in positions:
+        if p == 1:
+            continue
+        PT = gp.quicksum(proces_time[j, m] * x[j, p] for j in jobs)
+        model.addConstr(C[p, m] >= C[p-1, m] + PT, name=f"C_{p}_{m}_mach")
+
+# 4) Makespan definition: it must be at least the completion time of the last job on the last machine
+last_p = positions[-1]
+last_m = machines[-1]
+model.addConstr(Cmax >= C[last_p, last_m], name="CmaxDef")
+
+# Objective: minimize makespan
+model.setObjective(Cmax, GRB.MINIMIZE)
+
+# Optimize
+model.optimize()
+
+# Save the optimal makespan to file
+if model.status == GRB.OPTIMAL:
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write(str(model.objVal))
+# code ends
+=====

@@ -1,0 +1,114 @@
+Key Improvements:
+- Added a solver‐wrapper that first tries Gurobi and then falls back to the open‐source PuLP/CBC solver if Gurobi is unavailable.
+- Unified parameter and model building logic so the same production LP is constructed for either solver.
+- Wrapped all imports and solver calls in try/except blocks with clear error messages if neither solver is installed.
+- Checked solver status codes for optimality in both Gurobi and PuLP cases.
+- Ensured that only the numeric optimal value is written to `ref_optimal_value.txt` (no extra text).
+- Included concise comments explaining each major step.
+
+=====
+```python
+import sys
+
+# Problem parameters
+profit_h = 2.5      # profit per sqft of hardwood
+profit_v = 3.0      # profit per sqft of vinyl
+demand_h = 20000    # minimum weekly hardwood demand
+demand_v = 10000    # minimum weekly vinyl demand
+ship_min  = 60000   # minimum total shipment
+cap_h     = 50000   # maximum hardwood capacity
+cap_v     = 30000   # maximum vinyl capacity
+
+# Attempt to import Gurobi; if unavailable, fall back to PuLP
+try:
+    import gurobipy as gp
+    from gurobipy import GRB, GurobiError
+    solver = "gurobi"
+except ModuleNotFoundError:
+    try:
+        import pulp
+        solver = "pulp"
+    except ModuleNotFoundError:
+        sys.exit("Error: Neither Gurobi nor PuLP is installed. Please install one of them.")
+
+def solve_with_gurobi():
+    """Builds and solves the LP using Gurobi."""
+    try:
+        m = gp.Model("flooring_production")
+        m.setParam("OutputFlag", 0)  # suppress solver output
+
+        # Decision variables
+        x_h = m.addVar(lb=0.0, name="hardwood_sqft")
+        x_v = m.addVar(lb=0.0, name="vinyl_sqft")
+
+        # Constraints
+        m.addConstr(x_h >= demand_h, name="hardwood_min_demand")
+        m.addConstr(x_v >= demand_v, name="vinyl_min_demand")
+        m.addConstr(x_h + x_v >= ship_min, name="total_shipping_min")
+        m.addConstr(x_h <= cap_h, name="hardwood_capacity_max")
+        m.addConstr(x_v <= cap_v, name="vinyl_capacity_max")
+
+        # Objective
+        m.setObjective(profit_h * x_h + profit_v * x_v, GRB.MAXIMIZE)
+
+        # Solve
+        m.optimize()
+
+        if m.Status != GRB.OPTIMAL:
+            raise RuntimeError(f"Gurobi did not find an optimal solution (status {m.Status}).")
+
+        return m.ObjVal
+
+    except GurobiError as ge:
+        sys.exit(f"Gurobi error: {ge}")
+    except Exception as e:
+        sys.exit(f"Unexpected error in Gurobi solve: {e}")
+
+def solve_with_pulp():
+    """Builds and solves the LP using PuLP with CBC solver."""
+    try:
+        prob = pulp.LpProblem("flooring_production", pulp.LpMaximize)
+
+        # Decision variables
+        x_h = pulp.LpVariable("hardwood_sqft", lowBound=0, cat="Continuous")
+        x_v = pulp.LpVariable("vinyl_sqft",   lowBound=0, cat="Continuous")
+
+        # Objective
+        prob += profit_h * x_h + profit_v * x_v, "Total_Profit"
+
+        # Constraints
+        prob += x_h >= demand_h, "hardwood_min_demand"
+        prob += x_v >= demand_v, "vinyl_min_demand"
+        prob += x_h + x_v >= ship_min,  "total_shipping_min"
+        prob += x_h <= cap_h,            "hardwood_capacity_max"
+        prob += x_v <= cap_v,            "vinyl_capacity_max"
+
+        # Solve with CBC, suppress output
+        solver_cmd = pulp.PULP_CBC_CMD(msg=False)
+        result = prob.solve(solver_cmd)
+
+        if pulp.LpStatus[result] != "Optimal":
+            raise RuntimeError(f"PuLP did not find an optimal solution (status {pulp.LpStatus[result]}).")
+
+        return pulp.value(prob.objective)
+
+    except Exception as e:
+        sys.exit(f"Unexpected error in PuLP solve: {e}")
+
+def main():
+    if solver == "gurobi":
+        optimal_value = solve_with_gurobi()
+    else:
+        optimal_value = solve_with_pulp()
+
+    # Write only the numeric optimal value to file
+    try:
+        with open("ref_optimal_value.txt", "w") as fout:
+            fout.write(f"{optimal_value}")
+    except IOError as ioe:
+        sys.exit(f"Failed to write output file: {ioe}")
+
+if __name__ == "__main__":
+    main()
+```
+=====

@@ -1,0 +1,31 @@
+=====
+# code starts
+import gurobipy as gp
+from gurobipy import GRB
+
+# Create a new model
+m = gp.Model("flooring_production")
+
+# Create variables
+# Hardwood: at least 20,000, at most 50,000
+H = m.addVar(lb=20000, ub=50000, vtype=GRB.CONTINUOUS, name="Hardwood")
+# Vinyl: at least 10,000, at most 30,000
+V = m.addVar(lb=10000, ub=30000, vtype=GRB.CONTINUOUS, name="Vinyl")
+
+# Add the shipping contract constraint: at least 60,000 total
+m.addConstr(H + V >= 60000, name="TotalShipping")
+
+# Set objective: maximize profit (2.5 per sqft hardwood, 3 per sqft vinyl)
+m.setObjective(2.5 * H + 3.0 * V, GRB.MAXIMIZE)
+
+# Optimize the model
+m.optimize()
+
+# If optimal solution is found, write the objective value to file
+if m.status == GRB.OPTIMAL:
+    with open("ref_optimal_value.txt", "w") as f:
+        f.write(str(m.objVal))
+else:
+    print("No optimal solution found. Status code:", m.status)
+# code ends
+=====

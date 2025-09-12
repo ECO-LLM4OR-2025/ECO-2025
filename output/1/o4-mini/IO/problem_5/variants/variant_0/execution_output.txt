@@ -1,0 +1,6 @@
+Status: Error
+
+Traceback (most recent call last):
+  File "/mnt/d/Article/test/output/1/o4-mini/IO/problem_5/variants/variant_0/solution.py", line 2, in <module>
+    import gurobipy as gp
+ModuleNotFoundError: No module named 'gurobipy'

@@ -1,0 +1,40 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+# Create model
+model = gp.Model("meal_delivery")
+
+# Decision variables
+x_b = model.addVar(vtype=GRB.INTEGER, name="x_b")  # number of bikes
+x_s = model.addVar(vtype=GRB.INTEGER, name="x_s")  # number of scooters
+
+# Parameters
+cap_b = 8
+cap_s = 5
+charge_b = 3
+charge_s = 2
+ChargeTotal = 200
+min_scooters = 20
+
+# Constraints
+# 1. Total charge constraint
+model.addConstr(charge_b * x_b + charge_s * x_s <= ChargeTotal, name="charge_limit")
+
+# 2. At most 30% of vehicles can be bikes => 7*x_b <= 3*x_s
+model.addConstr(7 * x_b <= 3 * x_s, name="max_bike_ratio")
+
+# 3. At least 20 scooters
+model.addConstr(x_s >= min_scooters, name="min_scooters")
+
+# Objective: maximize total meals
+model.setObjective(cap_b * x_b + cap_s * x_s, GRB.MAXIMIZE)
+
+# Optimize
+model.optimize()
+
+# Retrieve optimal value
+optimal_value = model.objVal
+
+# Save optimal value to file
+with open('ref_optimal_value.txt', 'w') as f:
+    f.write(str(optimal_value))

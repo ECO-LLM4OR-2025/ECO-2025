@@ -1,0 +1,3 @@
+Status: Error
+
+Error: gurobipy is not installed. Please install Gurobi's Python API (e.g., `pip install gurobipy`).

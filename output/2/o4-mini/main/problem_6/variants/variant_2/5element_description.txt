@@ -1,0 +1,25 @@
+Sets:
+  T = {bike, scooter}, the set of vehicle types.
+
+Variables:
+  x_b (integer ≥ 0): number of bikes used.
+  x_s (integer ≥ 0): number of scooters used.
+
+Parameters:
+  cap_b = 8      # meals capacity per bike
+  cap_s = 5      # meals capacity per scooter
+  charge_b = 3   # units of charge per bike
+  charge_s = 2   # units of charge per scooter
+  ChargeTotal = 200    # total available charge units
+  max_bike_ratio = 0.30  # at most 30% of vehicles can be bikes
+  min_scooters = 20      # at least 20 scooters must be used
+
+Constraints:
+  1. Charge limit:   charge_b * x_b + charge_s * x_s ≤ ChargeTotal
+  2. Bike ratio:     x_b ≤ max_bike_ratio * (x_b + x_s)
+                     (equivalently, 7·x_b ≤ 3·x_s)
+  3. Minimum scooters: x_s ≥ min_scooters
+  4. Integrality:      x_b, x_s ∈ ℤ₊
+
+Objective:
+  Maximize total meals delivered = cap_b * x_b + cap_s * x_s

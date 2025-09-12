@@ -1,0 +1,3 @@
+Status: Error
+
+Error: gurobipy is not installed. Please install it via 'pip install gurobipy' and ensure a valid Gurobi license.

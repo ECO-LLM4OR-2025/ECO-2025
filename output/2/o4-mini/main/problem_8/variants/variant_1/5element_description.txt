@@ -1,0 +1,27 @@
+Sets:
+Products = {Scooter, Bike}
+
+Variables:
+x_Scooter ∈ Integer, ≥ 0  (number of scooters to produce)
+x_Bike    ∈ Integer, ≥ 0  (number of bikes to produce)
+
+Parameters:
+p_Scooter = 200      (profit per scooter)
+p_Bike    = 300      (profit per bike)
+d_Scooter = 2        (design hours per scooter)
+d_Bike    = 4        (design hours per bike)
+e_Scooter = 3        (engineering hours per scooter)
+e_Bike    = 5        (engineering hours per bike)
+D_capacity = 5000    (total design hours available)
+E_capacity = 6000    (total engineering hours available)
+
+Constraints:
+1) Design capacity:  d_Scooter * x_Scooter + d_Bike * x_Bike ≤ D_capacity
+   ⇒ 2·x_Scooter + 4·x_Bike ≤ 5000
+2) Engineering capacity:  e_Scooter * x_Scooter + e_Bike * x_Bike ≤ E_capacity
+   ⇒ 3·x_Scooter + 5·x_Bike ≤ 6000
+3) Nonnegativity and integrality: x_Scooter, x_Bike ≥ 0 and integer
+
+Objective:
+Maximize total profit = p_Scooter * x_Scooter + p_Bike * x_Bike
+                         = 200·x_Scooter + 300·x_Bike

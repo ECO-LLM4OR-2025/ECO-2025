@@ -1,0 +1,30 @@
+Sets:
+J = {1,2,3}                    // set of jobs
+M = {1,2}                      // set of machines
+K = {1,2,3}                    // set of positions in the sequence
+
+Variables:
+x[j,k] ∈ {0,1}  ∀ j∈J, k∈K    // 1 if job j is assigned to position k
+C[k,m] ≥ 0      ∀ k∈K, m∈M    // completion time of the job in position k on machine m
+
+Parameters:
+p[j,m]                        // processing time of job j on machine m (given)
+
+Constraints:
+1. Assignment constraints:
+   ∑_{k∈K} x[j,k] = 1     ∀ j∈J
+   ∑_{j∈J} x[j,k] = 1     ∀ k∈K
+
+2. Flow constraints (big-M not needed since all p[j,m] ≥ 0):
+   For each position k∈K and machine m∈M:
+     If k = 1:
+       C[1,m] ≥ ∑_{j∈J} p[j,m] x[j,1]
+     Else:
+       C[k,m] ≥ C[k−1,m] + ∑_{j∈J} p[j,m] x[j,k]
+     Additionally, for m > 1:
+       C[k,m] ≥ C[k,m−1] + ∑_{j∈J} p[j,m] x[j,k]
+
+   (Implicitly C[0,m] = 0 ∀ m and C[k,0] = 0 ∀ k)
+
+Objective:
+Minimize makespan = C[3,2]

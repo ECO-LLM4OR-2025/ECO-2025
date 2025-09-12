@@ -1,0 +1,71 @@
++++++
+Sets:
+  A = {cows, sheep, chickens}  // animal types
+
+Variables:
+  x_cows ∈ Z≥0      // number of cows
+  x_sheep ∈ Z≥0     // number of sheep
+  x_chickens ∈ Z≥0  // number of chickens
+
+Parameters:
+  sell_cows = 500
+  sell_sheep = 200
+  sell_chickens = 8
+  feed_cows = 100
+  feed_sheep = 80
+  feed_chickens = 5
+  profit_cows = sell_cows - feed_cows = 400
+  profit_sheep = sell_sheep - feed_sheep = 120
+  profit_chickens = sell_chickens - feed_chickens = 3
+  manure_cows = 10
+  manure_sheep = 5
+  manure_chickens = 3
+  manure_capacity = 800
+  max_chickens = 50
+  min_cows = 10
+  min_sheep = 20
+  max_total_animals = 100
+
+Constraints:
+  1) Manure capacity: manure_cows * x_cows + manure_sheep * x_sheep + manure_chickens * x_chickens ≤ manure_capacity
+  2) Chicken limit: x_chickens ≤ max_chickens
+  3) Minimum cows: x_cows ≥ min_cows
+  4) Minimum sheep: x_sheep ≥ min_sheep
+  5) Total animals: x_cows + x_sheep + x_chickens ≤ max_total_animals
+
+Objective:
+  Maximize total profit = profit_cows * x_cows + profit_sheep * x_sheep + profit_chickens * x_chickens
++++++
+
+=====
+import gurobipy as gp
+
+def main():
+    # Create model
+    m = gp.Model("farm_profit")
+
+    # Decision variables
+    cows = m.addVar(vtype=gp.GRB.INTEGER, name="cows")
+    sheep = m.addVar(vtype=gp.GRB.INTEGER, name="sheep")
+    chickens = m.addVar(vtype=gp.GRB.INTEGER, name="chickens")
+
+    # Constraints
+    m.addConstr(10 * cows + 5 * sheep + 3 * chickens <= 800, "manure_capacity")
+    m.addConstr(chickens <= 50, "max_chickens")
+    m.addConstr(cows >= 10, "min_cows")
+    m.addConstr(sheep >= 20, "min_sheep")
+    m.addConstr(cows + sheep + chickens <= 100, "total_animals")
+
+    # Objective: maximize profit
+    m.setObjective(400 * cows + 120 * sheep + 3 * chickens, gp.GRB.MAXIMIZE)
+
+    # Solve
+    m.optimize()
+
+    # Write optimal value to file
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write(str(m.objVal))
+
+if __name__ == "__main__":
+    main()
+=====

@@ -1,0 +1,72 @@
++++++
+Sets:
+Products: set of products = {scooter, bike}
+
+Variables:
+x_scooter ∈ R⁺: number of scooters to produce per month
+x_bike ∈ R⁺: number of bikes to produce per month
+
+Parameters:
+profit_scooter = 200  # profit per scooter
+profit_bike = 300     # profit per bike
+design_time_scooter = 2   # design hours required per scooter
+design_time_bike = 4      # design hours required per bike
+eng_time_scooter = 3      # engineering hours required per scooter
+eng_time_bike = 5         # engineering hours required per bike
+avail_design_time = 5000  # total available design hours per month
+avail_eng_time = 6000     # total available engineering hours per month
+
+Constraints:
+1) 2 * x_scooter + 4 * x_bike ≤ 5000       (design team capacity)
+2) 3 * x_scooter + 5 * x_bike ≤ 6000       (engineering team capacity)
+3) x_scooter ≥ 0, x_bike ≥ 0                (non-negativity)
+
+Objective:
+Maximize Z = 200 * x_scooter + 300 * x_bike
++++++
+
+=====
+import gurobipy as gp
+from gurobipy import GRB
+
+def main():
+    # Create model
+    model = gp.Model("scooter_bike_production")
+
+    # Parameters
+    profit_scooter = 200
+    profit_bike = 300
+    design_time_scooter = 2
+    design_time_bike = 4
+    eng_time_scooter = 3
+    eng_time_bike = 5
+    avail_design_time = 5000
+    avail_eng_time = 6000
+
+    # Decision variables
+    x_scooter = model.addVar(vtype=GRB.CONTINUOUS, name="x_scooter", lb=0)
+    x_bike = model.addVar(vtype=GRB.CONTINUOUS, name="x_bike", lb=0)
+
+    # Constraints
+    model.addConstr(design_time_scooter * x_scooter + design_time_bike * x_bike <= avail_design_time,
+                    name="DesignCapacity")
+    model.addConstr(eng_time_scooter * x_scooter + eng_time_bike * x_bike <= avail_eng_time,
+                    name="EngineeringCapacity")
+
+    # Objective
+    model.setObjective(profit_scooter * x_scooter + profit_bike * x_bike, GRB.MAXIMIZE)
+
+    # Optimize
+    model.optimize()
+
+    # Save optimal objective value
+    if model.status == GRB.OPTIMAL:
+        with open('ref_optimal_value.txt', 'w') as f:
+            f.write(str(model.objVal))
+    else:
+        with open('ref_optimal_value.txt', 'w') as f:
+            f.write("No optimal solution found.")
+
+if __name__ == "__main__":
+    main()
+=====

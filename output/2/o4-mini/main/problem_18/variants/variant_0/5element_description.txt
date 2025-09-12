@@ -1,0 +1,29 @@
+Sets:
+I = {1, 2, 3}  // set of aircraft
+
+Variables:
+t[i] ∈ R  // landing time of aircraft i
+earl[i] ≥ 0 ∈ R  // earliness of aircraft i (landing before target)
+tard[i] ≥ 0 ∈ R  // tardiness of aircraft i (landing after target)
+
+Parameters:
+E[i]  // earliest landing time for aircraft i
+L[i]  // latest landing time for aircraft i
+T[i]  // target landing time for aircraft i
+pb[i]  // penalty per unit time for landing before target for aircraft i
+pa[i]  // penalty per unit time for landing after target for aircraft i
+S[i,j]  // minimum separation time between landing of i and landing of j
+
+Constraints:
+1. Time window constraints:
+   ∀ i ∈ I: E[i] ≤ t[i] ≤ L[i]
+2. E-T earliness and tardiness definition:
+   ∀ i ∈ I:
+     earl[i] ≥ T[i] - t[i]
+     tard[i] ≥ t[i] - T[i]
+3. Separation constraints in prescribed order (i<j):
+   ∀ i, j ∈ I with i < j:
+     t[j] ≥ t[i] + S[i,j]
+
+Objective:
+Minimize ∑_{i ∈ I} [ pb[i] * earl[i] + pa[i] * tard[i] ]

@@ -1,0 +1,127 @@
+import sys
+
+# Try to import Gurobi and provide a helpful error message if unavailable
+try:
+    import gurobipy as gp
+    from gurobipy import GRB
+except ImportError:
+    sys.stderr.write(
+        "Error: gurobipy is not installed. "
+        "Please install it via 'pip install gurobipy' and ensure a valid Gurobi license.\n"
+    )
+    sys.exit(1)
+
+try:
+    # ----------------------------
+    # Data definitions
+    # ----------------------------
+    jobs = [1, 2, 3]               # Job IDs
+    machines = [1, 2]              # Two machines in series
+    # Processing time p[j,m] for each job on each machine
+    processing_time = {
+        (1, 1): 1, (1, 2): 3,
+        (2, 1): 2, (2, 2): 2,
+        (3, 1): 3, (3, 2): 1
+    }
+
+    n = len(jobs)
+    last_machine = machines[-1]
+    positions = range(1, n + 1)    # Sequence positions 1..n
+
+    # ----------------------------
+    # Build the Gurobi model
+    # ----------------------------
+    model = gp.Model("flowshop_2machine")
+    model.setParam(GRB.Param.OutputFlag, 0)   # Silence Gurobi log
+    model.setParam(GRB.Param.TimeLimit, 30)   # 30-second time limit
+
+    # Decision variables
+    # X[j,p] = 1 if job j is assigned to position p in the sequence
+    X = model.addVars(jobs, positions, vtype=GRB.BINARY, name="X")
+
+    # C[p,m] = completion time of the job scheduled in position p on machine m
+    C = model.addVars(positions, machines, lb=0.0, vtype=GRB.CONTINUOUS, name="C")
+
+    # ----------------------------
+    # Assignment constraints
+    # ----------------------------
+    # Each position p gets exactly one job
+    model.addConstrs(
+        (X.sum('*', p) == 1 for p in positions),
+        name="OneJobPerPosition"
+    )
+    # Each job j is assigned to exactly one position
+    model.addConstrs(
+        (X.sum(j, '*') == 1 for j in jobs),
+        name="OnePositionPerJob"
+    )
+
+    # ----------------------------
+    # Machine 1 timing constraints
+    # ----------------------------
+    # Position 1 on machine 1
+    expr_m1_p1 = gp.quicksum(processing_time[j, 1] * X[j, 1] for j in jobs)
+    model.addConstr(
+        C[1, 1] >= expr_m1_p1,
+        name="M1_Position1"
+    )
+    # Positions 2..n on machine 1: must wait for the previous position to finish
+    for p in positions:
+        if p > 1:
+            expr_m1 = gp.quicksum(processing_time[j, 1] * X[j, p] for j in jobs)
+            model.addConstr(
+                C[p, 1] >= C[p-1, 1] + expr_m1,
+                name=f"M1_Position{p}"
+            )
+
+    # ----------------------------
+    # Machine 2 timing constraints
+    # ----------------------------
+    # Position 1 on machine 2: must wait for its machine-1 completion
+    expr_m2_p1 = gp.quicksum(processing_time[j, 2] * X[j, 1] for j in jobs)
+    model.addConstr(
+        C[1, 2] >= C[1, 1] + expr_m2_p1,
+        name="M2_Position1"
+    )
+    # Positions 2..n on machine 2:
+    #   (a) technological precedence: same job after machine 1
+    #   (b) sequencing: cannot start before previous position on machine 2 finishes
+    for p in positions:
+        if p > 1:
+            expr_m2 = gp.quicksum(processing_time[j, 2] * X[j, p] for j in jobs)
+            model.addConstr(
+                C[p, 2] >= C[p, 1] + expr_m2,
+                name=f"M2_Tech_p{p}"
+            )
+            model.addConstr(
+                C[p, 2] >= C[p-1, 2] + expr_m2,
+                name=f"M2_Seq_p{p}"
+            )
+
+    # ----------------------------
+    # Objective: minimize makespan
+    # ----------------------------
+    model.setObjective(C[n, last_machine], GRB.MINIMIZE)
+
+    # ----------------------------
+    # Optimize and handle results
+    # ----------------------------
+    model.optimize()
+
+    if model.status == GRB.OPTIMAL:
+        makespan = model.objVal
+        # Write only the numeric makespan to file
+        with open('ref_optimal_value.txt', 'w') as f:
+            f.write(str(makespan))
+    else:
+        sys.stderr.write(
+            f"Optimization did not reach an optimal solution. Solver status: {model.status}\n"
+        )
+        sys.exit(1)
+
+except gp.GurobiError as e:
+    sys.stderr.write(f"Gurobi error: {e.message}\n")
+    sys.exit(1)
+except Exception as e:
+    sys.stderr.write(f"Unexpected error: {str(e)}\n")
+    sys.exit(1)

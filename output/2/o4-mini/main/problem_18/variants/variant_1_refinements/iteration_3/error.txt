@@ -1,0 +1,1 @@
+Error: gurobipy package not found. Please install gurobipy and ensure you have a valid license.

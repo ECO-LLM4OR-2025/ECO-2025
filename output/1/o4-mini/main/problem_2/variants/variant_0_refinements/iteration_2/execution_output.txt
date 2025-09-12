@@ -1,0 +1,13 @@
+Status: Error
+
+Traceback (most recent call last):
+  File "/mnt/d/Article/test/output/1/o4-mini/main/problem_2/variants/variant_0_refinements/iteration_2/solution.py", line 3, in <module>
+    import gurobipy as gp
+ModuleNotFoundError: No module named 'gurobipy'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/mnt/d/Article/test/output/1/o4-mini/main/problem_2/variants/variant_0_refinements/iteration_2/solution.py", line 6, in <module>
+    raise ImportError("gurobipy is required to run this model. Please install gurobipy (e.g., `pip install gurobipy`).")
+ImportError: gurobipy is required to run this model. Please install gurobipy (e.g., `pip install gurobipy`).

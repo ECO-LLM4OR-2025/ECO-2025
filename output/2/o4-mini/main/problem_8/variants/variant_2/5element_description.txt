@@ -1,0 +1,26 @@
+Sets:
+Products: P = {scooter, bike}
+
+Variables:
+x[p] for p in P: integer, >= 0, number of units of product p to produce
+
+Parameters:
+profit[p]:
+  profit[scooter] = 200
+  profit[bike] = 300
+design_time[p]:
+  design_time[scooter] = 2
+  design_time[bike] = 4
+eng_time[p]:
+  eng_time[scooter] = 3
+  eng_time[bike] = 5
+avail_design = 5000
+avail_engineering = 6000
+
+Constraints:
+1. sum_{p in P} design_time[p] * x[p] <= avail_design
+2. sum_{p in P} eng_time[p] * x[p] <= avail_engineering
+3. x[p] >= 0 and integer for all p in P
+
+Objective:
+Maximize sum_{p in P} profit[p] * x[p]

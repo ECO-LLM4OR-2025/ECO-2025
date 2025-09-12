@@ -1,0 +1,28 @@
+Sets:
+ I: set of aircraft indices {1, 2, 3}
+
+Variables:
+ x_i ∈ ℝ: landing time of aircraft i
+ eplus_i ∈ ℝ₊: tardiness of aircraft i (amount by which landing is after target)
+ eminus_i ∈ ℝ₊: earliness of aircraft i (amount by which landing is before target)
+
+Parameters:
+ E_i: earliest allowable landing time of aircraft i
+ L_i: latest allowable landing time of aircraft i
+ T_i: target landing time of aircraft i
+ α_i: penalty per unit tardiness for aircraft i
+ β_i: penalty per unit earliness for aircraft i
+ sep_{i,j}: required separation time if aircraft i lands before aircraft j
+
+Constraints:
+ 1. Time windows: for all i ∈ I,
+      E_i ≤ x_i ≤ L_i
+ 2. Earliness/tardiness balance: for all i ∈ I,
+      x_i − T_i = eplus_i − eminus_i
+ 3. Non-negativity: for all i ∈ I,
+      eplus_i ≥ 0,  eminus_i ≥ 0
+ 4. Separation & fixed order (1 before 2 before 3): for all i,j ∈ I with i<j,
+      x_j ≥ x_i + sep_{i,j}
+
+Objective:
+ Minimize ∑_{i ∈ I} ( α_i · eplus_i + β_i · eminus_i )

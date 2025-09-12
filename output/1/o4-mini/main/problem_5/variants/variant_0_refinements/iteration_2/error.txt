@@ -1,0 +1,1 @@
+Error: Gurobi is not installed or the Python API is unavailable. Please install Gurobi and configure the environment.

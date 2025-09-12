@@ -1,0 +1,3 @@
+Status: Error
+
+ERROR: Gurobi module not found. Please install Gurobi and its Python interface.

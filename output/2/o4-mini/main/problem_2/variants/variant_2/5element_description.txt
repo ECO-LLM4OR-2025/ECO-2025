@@ -1,0 +1,31 @@
+Sets:
+  J = {1,2,3}                                 # Set of jobs
+  P = {1,2,3}                                 # Set of sequence positions
+  M = {1,2}                                   # Set of machines
+
+Variables:
+  X[j,p] ∈ {0,1}   for j ∈ J, p ∈ P          # 1 if job j is assigned to position p
+  C[p,m] ≥ 0      for p ∈ P, m ∈ M           # Completion time of the job in position p on machine m
+
+Parameters:
+  p[j,m] = proces_time[j-1][m-1]            # Processing time of job j on machine m
+  n = |J| = 3
+  num_m = |M| = 2
+
+Constraints:
+  # Assignment constraints
+  ∑_{j∈J} X[j,p] = 1     ∀p ∈ P             # Exactly one job per position
+  ∑_{p∈P} X[j,p] = 1     ∀j ∈ J             # Each job appears in exactly one position
+
+  # Completion‐time recursion on machine 1
+  C[1,1] ≥ ∑_{j∈J} p[j,1] * X[j,1]
+  C[p,1] ≥ C[p-1,1] + ∑_{j∈J} p[j,1] * X[j,p]   ∀p = 2..n
+
+  # Completion‐time recursion for machines m>1
+  For m=2:
+    C[1,2] ≥ C[1,1] + ∑_{j∈J} p[j,2] * X[j,1]
+    C[p,2] ≥ C[p,1] + ∑_{j∈J} p[j,2] * X[j,p]
+    C[p,2] ≥ C[p-1,2] + ∑_{j∈J} p[j,2] * X[j,p]  ∀p=2..n
+
+Objective:
+  Minimize makespan = C[n,2]   # Completion time of the last position on the last machine

@@ -1,0 +1,92 @@
+Key Improvements:
+1. Implemented a try/except import to fall back on PuLP when gurobipy is unavailable, so the script will run in environments without Gurobi.
+2. Added error handling around both model-building and optimization phases to provide clear exit messages on failure.
+3. Suppressed solver output for cleaner execution.
+4. Ensured that only the numeric optimal value (no extra text) is written to `ref_optimal_value.txt`.
+
+=====
+import sys
+
+# Try importing Gurobi; if not found, fall back to PuLP
+try:
+    import gurobipy as gp
+    from gurobipy import GRB
+    use_gurobi = True
+except ImportError:
+    try:
+        import pulp
+        use_gurobi = False
+    except ImportError:
+        sys.exit("Error: Neither Gurobi nor PuLP is installed. Please install one and retry.")
+
+# Problem parameters
+shaping_thin = 50
+shaping_stubby = 30
+baking_thin = 90
+baking_stubby = 150
+shaping_capacity = 3000
+baking_capacity = 4000
+profit_thin = 5
+profit_stubby = 9
+
+try:
+    if use_gurobi:
+        # Build Gurobi model
+        model = gp.Model("terracotta_jars")
+        model.Params.OutputFlag = 0  # turn off solver log
+
+        # Decision variables
+        x_thin = model.addVar(vtype=GRB.INTEGER, name="x_thin", lb=0)
+        x_stubby = model.addVar(vtype=GRB.INTEGER, name="x_stubby", lb=0)
+
+        # Constraints
+        model.addConstr(shaping_thin * x_thin + shaping_stubby * x_stubby <= shaping_capacity, name="shaping")
+        model.addConstr(baking_thin * x_thin + baking_stubby * x_stubby <= baking_capacity, name="baking")
+
+        # Objective
+        model.setObjective(profit_thin * x_thin + profit_stubby * x_stubby, GRB.MAXIMIZE)
+
+        # Optimize
+        model.optimize()
+
+        # Check status and extract objective
+        if model.Status == GRB.OPTIMAL:
+            opt_val = model.ObjVal
+        else:
+            raise Exception(f"Gurobi did not find an optimal solution (status {model.Status}).")
+
+    else:
+        # Build PuLP model
+        prob = pulp.LpProblem("terracotta_jars", pulp.LpMaximize)
+
+        # Decision variables
+        x_thin = pulp.LpVariable("x_thin", lowBound=0, cat="Integer")
+        x_stubby = pulp.LpVariable("x_stubby", lowBound=0, cat="Integer")
+
+        # Objective
+        prob += profit_thin * x_thin + profit_stubby * x_stubby
+
+        # Constraints
+        prob += shaping_thin * x_thin + shaping_stubby * x_stubby <= shaping_capacity
+        prob += baking_thin * x_thin + baking_stubby * x_stubby <= baking_capacity
+
+        # Solve silently with CBC
+        prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+        status = pulp.LpStatus[prob.status]
+        if status == 'Optimal':
+            opt_val = pulp.value(prob.objective)
+        else:
+            raise Exception(f"PuLP did not find an optimal solution (status '{status}').")
+
+    # Write only the numeric optimal value to file
+    with open('ref_optimal_value.txt', 'w') as f:
+        # If the result is effectively integer, write as int
+        if abs(opt_val - round(opt_val)) < 1e-6:
+            f.write(str(int(round(opt_val))))
+        else:
+            f.write(str(opt_val))
+
+except Exception as e:
+    sys.exit(f"Error during optimization: {e}")
+=====

@@ -1,0 +1,50 @@
+ecision variables  
+   - H: square feet of hardwood flooring produced weekly (continuous)  
+   - V: square feet of vinyl planks produced weekly (continuous)  
+
+2. Objective function  
+   Maximize profit = 2.5 * H + 3 * V  
+
+3. Constraints  
+   - Demand minimums:  
+     H ≥ 20 000  
+     V ≥ 10 000  
+   - Contract shipping minimum:  
+     H + V ≥ 60 000  
+   - Production capacity limits:  
+     H ≤ 50 000  
+     V ≤ 30 000  
+
+4. Model overview  
+   A linear programming (LP) model with two continuous decision variables, a linear objective, and linear constraints. We assume production and shipping capacities are deterministic and costs are linear.
+
+=====  
+# code starts
+import gurobipy as gp
+from gurobipy import GRB
+
+# Create the model
+model = gp.Model("flooring_production")
+
+# Decision variables
+H = model.addVar(lb=0, name="Hardwood")  # Hardwood sq ft
+V = model.addVar(lb=0, name="Vinyl")     # Vinyl sq ft
+
+# Constraints
+model.addConstr(H >= 20000, name="MinHardwood")
+model.addConstr(V >= 10000, name="MinVinyl")
+model.addConstr(H + V >= 60000, name="MinTotalShip")
+model.addConstr(H <= 50000, name="MaxHardwood")
+model.addConstr(V <= 30000, name="MaxVinyl")
+
+# Objective: maximize profit
+model.setObjective(2.5 * H + 3 * V, GRB.MAXIMIZE)
+
+# Optimize
+model.optimize()
+
+# Save optimal objective value
+with open('ref_optimal_value.txt', 'w') as f:
+    f.write(str(model.objVal))
+# code ends
+====

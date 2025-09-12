@@ -1,0 +1,1 @@
+Error: gurobipy not found. Please install the Gurobi Python API (gurobipy).

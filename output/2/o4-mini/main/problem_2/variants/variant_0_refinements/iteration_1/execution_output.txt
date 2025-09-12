@@ -1,0 +1,13 @@
+Status: Error
+
+Traceback (most recent call last):
+  File "/mnt/d/Article/test/output/2/o4-mini/main/problem_2/variants/variant_0_refinements/iteration_1/solution.py", line 18, in <module>
+    import gurobipy as gp
+ModuleNotFoundError: No module named 'gurobipy'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/mnt/d/Article/test/output/2/o4-mini/main/problem_2/variants/variant_0_refinements/iteration_1/solution.py", line 84, in <module>
+    import pulp
+ModuleNotFoundError: No module named 'pulp'

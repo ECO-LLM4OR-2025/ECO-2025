@@ -1,0 +1,13 @@
+# Optimization Problem Success Rate Report
+
+Total problems: 2
+Solved problems: 0
+Success rate: 0.00%
+
+## Solved Problems List
+
+
+## Unsolved Problems List
+
+- Problem 2
+- Problem 5

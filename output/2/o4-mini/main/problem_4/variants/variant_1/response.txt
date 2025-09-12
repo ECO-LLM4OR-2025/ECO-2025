@@ -1,0 +1,80 @@
++++++
+Sets:
+  There is a single index set A = {c, s, h} representing the three animal types:
+    c = cows
+    s = sheep
+    h = chickens
+
+Variables:
+  x_c ∈ Z₊ : number of cows
+  x_s ∈ Z₊ : number of sheep
+  x_h ∈ Z₊ : number of chickens
+
+Parameters:
+  p_c = 500   (selling price per cow)
+  p_s = 200   (selling price per sheep)
+  p_h =   8   (selling price per chicken)
+  f_c = 100   (feed cost per cow)
+  f_s =  80   (feed cost per sheep)
+  f_h =   5   (feed cost per chicken)
+  m_c =  10   (manure units per cow per day)
+  m_s =   5   (manure units per sheep per day)
+  m_h =   3   (manure units per chicken per day)
+  M_max = 800 (maximum manure units handled per day)
+  H_max = 50  (maximum chickens due to space)
+  C_min = 10  (minimum cows required)
+  S_min = 20  (minimum sheep required)
+  A_max =100  (maximum total animals)
+
+Derived profit parameters:
+  π_c = p_c - f_c = 400
+  π_s = p_s - f_s = 120
+  π_h = p_h - f_h =   3
+
+Constraints:
+  1) Manure capacity:   m_c x_c + m_s x_s + m_h x_h ≤ M_max
+  2) Chicken capacity:  x_h ≤ H_max
+  3) Minimum cows:       x_c ≥ C_min
+  4) Minimum sheep:      x_s ≥ S_min
+  5) Total animals:      x_c + x_s + x_h ≤ A_max
+  6) Integrality:        x_c, x_s, x_h ∈ Z₊
+
+Objective:
+  Maximize total profit: π_c x_c + π_s x_s + π_h x_h
++++++
+
+=====
+import gurobipy as gp
+from gurobipy import GRB
+
+# Create the model
+model = gp.Model("farm_optimization")
+
+# Decision variables: number of cows, sheep, and chickens (integer)
+x_c = model.addVar(vtype=GRB.INTEGER, name="cows")
+x_s = model.addVar(vtype=GRB.INTEGER, name="sheep")
+x_h = model.addVar(vtype=GRB.INTEGER, name="chickens")
+
+# Parameters
+profit_c = 400  # 500 - 100
+profit_s = 120  # 200 - 80
+profit_h = 3    # 8 - 5
+
+# Constraints
+model.addConstr(10 * x_c + 5 * x_s + 3 * x_h <= 800, name="ManureCapacity")
+model.addConstr(x_h <= 50,              name="MaxChickens")
+model.addConstr(x_c >= 10,              name="MinCows")
+model.addConstr(x_s >= 20,              name="MinSheep")
+model.addConstr(x_c + x_s + x_h <= 100, name="TotalAnimals")
+
+# Objective: maximize total profit
+model.setObjective(profit_c * x_c + profit_s * x_s + profit_h * x_h, GRB.MAXIMIZE)
+
+# Optimize
+model.optimize()
+
+# Save the optimal objective value to a file
+if model.status == GRB.OPTIMAL:
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write(str(model.objVal))
+=====

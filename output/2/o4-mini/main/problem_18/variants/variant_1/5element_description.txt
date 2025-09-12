@@ -1,0 +1,34 @@
+Sets:
+I: Set of aircraft, indexed by i ∈ {1,2,3}
+
+Variables:
+t[i] ∈ ℝ: landing time of aircraft i  
+e[i] ∈ ℝ₊: early deviation for aircraft i (if it lands before its target)  
+l[i] ∈ ℝ₊: late deviation for aircraft i (if it lands after its target)
+
+Parameters:
+E[i]: earliest landing time for aircraft i  
+L[i]: latest landing time for aircraft i  
+T[i]: target landing time for aircraft i  
+Pb[i]: penalty per unit time if aircraft i lands before T[i]  
+Pa[i]: penalty per unit time if aircraft i lands after T[i]  
+S[i,j]: required separation time between aircraft i and j (if i lands before j)
+
+Constraints:
+1. Time window constraints:  
+   ∀ i ∈ I:  
+     t[i] ≥ E[i]  
+     t[i] ≤ L[i]
+
+2. Separation constraints (order enforced by index):  
+   ∀ i,j ∈ I with i < j:  
+     t[j] − t[i] ≥ S[i,j]
+
+3. Deviation definitions:  
+   ∀ i ∈ I:  
+     e[i] ≥ T[i] − t[i]  
+     l[i] ≥ t[i] − T[i]  
+     e[i] ≥ 0, l[i] ≥ 0
+
+Objective:
+Minimize ∑_{i∈I} (Pb[i] * e[i] + Pa[i] * l[i])

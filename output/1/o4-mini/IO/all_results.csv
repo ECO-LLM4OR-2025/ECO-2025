@@ -1,0 +1,120 @@
+id,variant_id,question,ground_truth,code,code_excute_result,status
+2,2_0,"A set of jobs `Jobs` need to be processed on a set of machines `Machines` in series. All jobs have the same processing order through all the machines from machine 1 to machine M. Each machine can work in parallel. The workflow is the following: the first job of the sequence goes to the first machine to be processed; meanwhile, other jobs wait; when the first machine has processed the first job, the first job goes to the second machine and the second job of the sequence starts to be processed by the first machine; and so on. The time required to process job `j` on machine `m` is `ProcesTime_{j, m}`. The problem aims to minimize the total makespan. The goal is to find a sequence of jobs that minimize the makespan: the time when all jobs have been processed.
+Parameters: {""jobs"": [1, 2, 3], ""schedules"": [1, 2, 3], ""machines"": [1, 2], ""proces_time"": [[1, 3], [2, 2], [3, 1]]}",7.0,"# code starts
+import gurobipy as gp
+from gurobipy import GRB
+
+# Data
+jobs = [1, 2, 3]
+positions = [1, 2, 3]
+machines = [1, 2]
+# processing time for job j on machine m
+proces_time = {
+    (1, 1): 1, (1, 2): 3,
+    (2, 1): 2, (2, 2): 2,
+    (3, 1): 3, (3, 2): 1
+}
+
+# Model
+model = gp.Model(""flowshop_scheduling"")
+
+# Decision variables
+# x[j,p] = 1 if job j is assigned to position p in the sequence
+x = model.addVars(jobs, positions, vtype=GRB.BINARY, name=""x"")
+# C[p,m] is completion time of the job in position p on machine m
+C = model.addVars(positions, machines, lb=0.0, vtype=GRB.CONTINUOUS, name=""C"")
+# makespan
+Cmax = model.addVar(lb=0.0, vtype=GRB.CONTINUOUS, name=""Cmax"")
+
+# Constraints
+
+# 1) Each job is assigned to exactly one position
+model.addConstrs((gp.quicksum(x[j, p] for p in positions) == 1
+                  for j in jobs), name=""AssignJob"")
+
+# 2) Each position has exactly one job
+model.addConstrs((gp.quicksum(x[j, p] for j in jobs) == 1
+                  for p in positions), name=""AssignPosition"")
+
+# 3) Flow shop sequencing constraints
+# Machine 1 (m=1)
+for p in positions:
+    # processing time of the job in position p on machine 1
+    PT = gp.quicksum(proces_time[j, 1] * x[j, p] for j in jobs)
+    if p == 1:
+        # first job on machine 1: start at time zero
+        model.addConstr(C[p, 1] >= PT, name=f""C_{p}_1_first"")
+    else:
+        # sequence constraint on machine 1
+        model.addConstr(C[p, 1] >= C[p-1, 1] + PT, name=f""C_{p}_1_seq"")
+
+# For machines m > 1
+for m in machines:
+    if m == 1:
+        continue
+    for p in positions:
+        # precedence: a job on machine m cannot finish before it finishes on machine m-1
+        PT = gp.quicksum(proces_time[j, m] * x[j, p] for j in jobs)
+        model.addConstr(C[p, m] >= C[p, m-1] + PT, name=f""C_{p}_{m}_flow"")
+
+# Sequence constraint for each machine m > 1
+for m in machines:
+    for p in positions:
+        if p == 1:
+            continue
+        PT = gp.quicksum(proces_time[j, m] * x[j, p] for j in jobs)
+        model.addConstr(C[p, m] >= C[p-1, m] + PT, name=f""C_{p}_{m}_mach"")
+
+# 4) Makespan definition: it must be at least the completion time of the last job on the last machine
+last_p = positions[-1]
+last_m = machines[-1]
+model.addConstr(Cmax >= C[last_p, last_m], name=""CmaxDef"")
+
+# Objective: minimize makespan
+model.setObjective(Cmax, GRB.MINIMIZE)
+
+# Optimize
+model.optimize()
+
+# Save the optimal makespan to file
+if model.status == GRB.OPTIMAL:
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write(str(model.objVal))
+# code ends","Traceback (most recent call last):
+  File ""/mnt/d/Article/test/output/1/o4-mini/IO/problem_2/variants/variant_0/solution.py"", line 2, in <module>
+    import gurobipy as gp
+ModuleNotFoundError: No module named 'gurobipy'
+",Error
+5,5_0,"A flooring company produces engineered hardwood and vinyl planks. Their sales forecasts show an expected demand of at least 20,000 square foot of hardwood and 10,000 square feet of vinyl planks each week. To satisfy a shipping contract, a total of at least 60,000 square feet of flooring much be shipped each week. Due to a labor shortage issue, no more than 50,000 square feet of hardwood and 30,000  square feet of vinyl  can be produced weekly. If a square foot of hardwood flooring yields a profit of $2.5 and a square foot of vinyl planks produces a $3 profit, how many of each type of flooring should be made weekly to maximize the company's profit?",215000.0,"# code starts
+import gurobipy as gp
+from gurobipy import GRB
+
+# Create a new model
+m = gp.Model(""flooring_production"")
+
+# Create variables
+# Hardwood: at least 20,000, at most 50,000
+H = m.addVar(lb=20000, ub=50000, vtype=GRB.CONTINUOUS, name=""Hardwood"")
+# Vinyl: at least 10,000, at most 30,000
+V = m.addVar(lb=10000, ub=30000, vtype=GRB.CONTINUOUS, name=""Vinyl"")
+
+# Add the shipping contract constraint: at least 60,000 total
+m.addConstr(H + V >= 60000, name=""TotalShipping"")
+
+# Set objective: maximize profit (2.5 per sqft hardwood, 3 per sqft vinyl)
+m.setObjective(2.5 * H + 3.0 * V, GRB.MAXIMIZE)
+
+# Optimize the model
+m.optimize()
+
+# If optimal solution is found, write the objective value to file
+if m.status == GRB.OPTIMAL:
+    with open(""ref_optimal_value.txt"", ""w"") as f:
+        f.write(str(m.objVal))
+else:
+    print(""No optimal solution found. Status code:"", m.status)
+# code ends","Traceback (most recent call last):
+  File ""/mnt/d/Article/test/output/1/o4-mini/IO/problem_5/variants/variant_0/solution.py"", line 2, in <module>
+    import gurobipy as gp
+ModuleNotFoundError: No module named 'gurobipy'
+",Error

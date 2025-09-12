@@ -1,0 +1,4 @@
+status,iterations,ground_truth,path,problem_id,variant
+Not solved,3,7.0,/mnt/d/Article/test/output/2/o4-mini/main/problem_2/variants/variant_0_refinements,2,variant_0
+Not solved,3,7.0,/mnt/d/Article/test/output/2/o4-mini/main/problem_2/variants/variant_1_refinements,2,variant_1
+Not solved,3,7.0,/mnt/d/Article/test/output/2/o4-mini/main/problem_2/variants/variant_2_refinements,2,variant_2

@@ -1,0 +1,25 @@
+Sets:
+V = {bike, scooter}
+
+Variables:
+x_bike: integer, number of bikes used
+x_scooter: integer, number of scooters used
+
+Parameters:
+charge_bike = 3         (charge units per bike)
+charge_scooter = 2      (charge units per scooter)
+cap_bike = 8            (meals per bike)
+cap_scooter = 5         (meals per scooter)
+total_charge = 200      (available charge units)
+max_bike_share = 0.30   (maximum fraction of vehicles that can be bikes)
+min_scooters = 20       (minimum number of scooters)
+
+Constraints:
+1. Charge capacity: charge_bike * x_bike + charge_scooter * x_scooter <= total_charge
+2. Bike share limit: x_bike <= max_bike_share * (x_bike + x_scooter)
+   (Linearized as 7 * x_bike <= 3 * x_scooter)
+3. Minimum scooters: x_scooter >= min_scooters
+4. Nonnegativity and integrality: x_bike, x_scooter >= 0 and integer
+
+Objective:
+Maximize total meals delivered = cap_bike * x_bike + cap_scooter * x_scooter

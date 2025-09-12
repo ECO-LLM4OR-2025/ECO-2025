@@ -1,0 +1,142 @@
+import sys
+
+# Problem data
+J = [1, 2, 3]          # jobs
+M = [1, 2]             # machines
+t = {                   # processing times t[j,m]
+    (1,1): 1, (1,2): 3,
+    (2,1): 2, (2,2): 2,
+    (3,1): 3, (3,2): 1
+}
+# Compute a valid "big M" as the sum of all processing times
+Mbig = sum(t.values())
+
+opt_val = None
+
+# Try Gurobi first
+try:
+    import gurobipy as gp
+    from gurobipy import GRB
+
+    # Build Gurobi model
+    model = gp.Model("flowshop_2machine_3jobs")
+    model.Params.OutputFlag = 0      # turn off Gurobi logging
+    model.Params.TimeLimit = 30      # e.g. 30 second time limit
+
+    # Decision variables
+    S = model.addVars(J, M, lb=0.0, name="S")            # start times S[j,m]
+    y = model.addVars(J, J, vtype=GRB.BINARY, name="y")  # ordering binaries y[i,j]
+    Cmax = model.addVar(lb=0.0, name="Cmax")             # makespan
+
+    # 1. Sequencing consistency
+    for i in J:
+        for j in J:
+            if i < j:
+                model.addConstr(y[i,j] + y[j,i] == 1, name=f"seq_{i}_{j}")
+
+    # 2. Machine‐capacity on machine 1
+    for i in J:
+        for j in J:
+            if i != j:
+                model.addConstr(
+                    S[i,1] + t[(i,1)]
+                    <= S[j,1] + Mbig * (1 - y[i,j]),
+                    name=f"m1_{i}_{j}"
+                )
+
+    # 3. Job precedence between machine 1 and 2
+    for j in J:
+        model.addConstr(
+            S[j,2] >= S[j,1] + t[(j,1)],
+            name=f"prec_{j}"
+        )
+
+    # 4. Machine‐capacity on machine 2
+    for i in J:
+        for j in J:
+            if i != j:
+                model.addConstr(
+                    S[i,2] + t[(i,2)]
+                    <= S[j,2] + Mbig * (1 - y[i,j]),
+                    name=f"m2_{i}_{j}"
+                )
+
+    # 5. Makespan definition
+    for j in J:
+        model.addConstr(
+            Cmax >= S[j,2] + t[(j,2)],
+            name=f"cmax_{j}"
+        )
+
+    # Objective
+    model.setObjective(Cmax, GRB.MINIMIZE)
+
+    # Optimize
+    model.optimize()
+
+    if model.Status == GRB.OPTIMAL:
+        opt_val = model.ObjVal
+    else:
+        raise gp.GurobiError("No optimal solution found by Gurobi")
+
+except ImportError:
+    # Fallback to PuLP if Gurobi is unavailable
+    import pulp
+
+    # Build PuLP model
+    prob = pulp.LpProblem("flowshop_2machine_3jobs", pulp.LpMinimize)
+
+    # Decision variables
+    S = pulp.LpVariable.dicts("S", [(j, m) for j in J for m in M],
+                              lowBound=0, cat="Continuous")
+    y = pulp.LpVariable.dicts("y", [(i, j) for i in J for j in J if i != j],
+                              cat="Binary")
+    Cmax = pulp.LpVariable("Cmax", lowBound=0, cat="Continuous")
+
+    # Objective
+    prob += Cmax
+
+    # 1. Sequencing consistency
+    for i in J:
+        for j in J:
+            if i < j:
+                prob += y[(i, j)] + y[(j, i)] == 1
+
+    # 2. Machine‐capacity on machine 1
+    for i in J:
+        for j in J:
+            if i != j:
+                prob += (
+                    S[(i, 1)] + t[(i, 1)]
+                    <= S[(j, 1)] + Mbig * (1 - y[(i, j)])
+                )
+
+    # 3. Job precedence between machine 1 and 2
+    for j in J:
+        prob += S[(j, 2)] >= S[(j, 1)] + t[(j, 1)]
+
+    # 4. Machine‐capacity on machine 2
+    for i in J:
+        for j in J:
+            if i != j:
+                prob += (
+                    S[(i, 2)] + t[(i, 2)]
+                    <= S[(j, 2)] + Mbig * (1 - y[(i, j)])
+                )
+
+    # 5. Makespan definition
+    for j in J:
+        prob += Cmax >= S[(j, 2)] + t[(j, 2)]
+
+    # Solve with CBC
+    prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+    status = pulp.LpStatus.get(prob.status, "Undefined")
+    if status == "Optimal":
+        opt_val = pulp.value(Cmax)
+    else:
+        sys.exit("No optimal solution found by PuLP")
+
+# Write only the optimal makespan value to the output file
+with open("ref_optimal_value.txt", "w") as f:
+    f.write(str(opt_val))
