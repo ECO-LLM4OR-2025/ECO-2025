@@ -4,8 +4,9 @@ ECO (Exploration-Correction Optimization) is a novel zero-shot framework that le
 
 ## 🔥News
 
-- [2025/09] We firstly release our inference and evaluation code, and results for ECO framework!  
-- [2025/09] 📂 Replication package (results) is available here: [Google Drive Link](https://drive.google.com/file/d/1ZrOCsExLGVbTy3TYltKrZmJrP4KQuEnM/view?usp=sharing)
+- [2025/09] We firstly release our  code, datasets and results for ECO framework!  
+- [2025/09] 📂 Results package  is available here: [Google Drive Link](https://drive.google.com/file/d/1YdRtTOfqaJuJlm3ubi7CrtsIDdZknr5E/view?usp=sharing)
+
 
 ## 🌆Overview
 
