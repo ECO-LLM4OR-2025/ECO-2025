@@ -159,20 +159,20 @@ class Generator:
         return ele, code
 
     def parse_objective_direction(self, five_element_text):
-        """解析目标方向（maximize/minimize）"""
+        """Parse objective direction (maximize/minimize)"""
         if not five_element_text:
             return None
         
         text_lower = five_element_text.lower()
         
-        # 查找Objective部分
+        # Find Objective section
         obj_start = text_lower.find("objective:")
         if obj_start == -1:
             obj_start = text_lower.find("objective")
         
         if obj_start != -1:
-            # 提取Objective部分的内容
-            obj_section = text_lower[obj_start:obj_start + 200]  # 取200个字符
+            # Extract content from Objective section
+            obj_section = text_lower[obj_start:obj_start + 200]  # Take 200 characters
             
             if "maximize" in obj_section or "max" in obj_section:
                 return "maximize"
@@ -182,11 +182,11 @@ class Generator:
         return None
 
     def extract_numerical_value(self, text):
-        """从文本中提取数值"""
+        """Extract numerical value from text"""
         if text is None:
             return None
         
-        # 使用正则表达式提取数值
+        # Use regular expression to extract numerical value
         pattern = r'-?\d+(?:\.\d+)?'
         matches = re.findall(pattern, text)
         
@@ -199,13 +199,13 @@ class Generator:
         return None
 
     def check_convergence(self, prev_value, curr_value, prev_code, curr_code, tolerance=1e-6):
-        """检查是否收敛（数值和代码都没有显著变化）"""
-        # 检查数值收敛
+        """Check if converged (no significant change in value and code)"""
+        # Check numerical convergence
         if prev_value is not None and curr_value is not None:
             if abs(prev_value - curr_value) < tolerance:
                 return True
         
-        # 检查代码收敛（简单的字符串比较）
+        # Check code convergence (simple string comparison)
         if prev_code and curr_code:
             if prev_code.strip() == curr_code.strip():
                 return True
@@ -331,7 +331,7 @@ class Generator:
                     
                     # Track variants for this problem
                     problem_variants = []
-                    objective_directions = []  # 收集所有变体的目标方向
+                    objective_directions = []  # Collect objective directions from all variants
                     
                     # Generate multiple variants for this problem
                     for variant_num in range(self.variants_per_problem):
@@ -430,11 +430,11 @@ class Generator:
                     # Determine consensus objective direction
                     consensus_direction = None
                     if objective_directions:
-                        # 如果所有变体的目标方向一致，则确定为目标方向
+                        # If all variants have the same objective direction, use it as consensus
                         if len(set(objective_directions)) == 1:
                             consensus_direction = objective_directions[0]
                         else:
-                            # 如果不一致，选择出现频率最高的
+                            # If inconsistent, choose the most frequent one
                             from collections import Counter
                             consensus_direction = Counter(objective_directions).most_common(1)[0][0]
                     
@@ -471,7 +471,7 @@ class Revision:
         self.path = os.path.join(os.path.join(os.path.join(configs.output_path, configs.dataset), configs.g_llm_model), self.train_flag)
             
         self.max_iterations = configs.max_iterations # maximum iterations for variant
-        self.convergence_patience = getattr(configs, 'convergence_patience', 3)  # 连续多少轮一致才收敛，默认3轮
+        self.convergence_patience = getattr(configs, 'convergence_patience', 3)  # How many consecutive iterations with no change required for convergence, default 3
         self.temperature = configs.r_temperature
         self.llm_model = configs.r_llm_model
         self.api_key=configs.r_api_key
@@ -495,17 +495,17 @@ class Revision:
             self.cache = []
 
     def extract_numerical_value(self, text):
-        """从文本中提取数值"""
+        """Extract numerical value from text"""
         if text is None:
             return None
         
-        # 首先尝试直接转换为浮点数
+        # First try direct conversion to float
         try:
             return float(text.strip())
         except ValueError:
             pass
         
-        # 使用正则表达式提取数值
+        # Use regular expression to extract numerical value
         pattern = r'-?\d+(?:\.\d+)?'
         matches = re.findall(pattern, text)
         
@@ -518,10 +518,10 @@ class Revision:
         return None
 
     def check_convergence(self, prev_value, curr_value, prev_code, curr_code, tolerance=1e-6):
-        """检查是否收敛（数值和代码都没有显著变化）"""
-        # 检查数值收敛
+        """Check if converged (no significant change in value and code)"""
+        # Check numerical convergence
         if prev_value is not None and curr_value is not None:
-            # 确保两个值都是数值类型
+            # Ensure both values are numeric types
             try:
                 prev_num = float(prev_value) if isinstance(prev_value, str) else prev_value
                 curr_num = float(curr_value) if isinstance(curr_value, str) else curr_value
@@ -530,7 +530,7 @@ class Revision:
             except (ValueError, TypeError):
                 pass
         
-        # 检查代码收敛（简单的字符串比较）
+        # Check code convergence (simple string comparison)
         if prev_code and curr_code:
             if prev_code.strip() == curr_code.strip():
                 return True
@@ -583,7 +583,7 @@ class Revision:
         if os.path.exists(ground_truth_file):
             with open(ground_truth_file, 'r') as f:
                 content = f.read().strip()
-                return content  # 返回原始内容，不尝试转换
+                return content  # Return original content without attempting conversion
         return None
 
     def get_variant_5element(self, variant_path):
@@ -639,7 +639,7 @@ class Revision:
         if extracted_value:
             try:
                 value_float = float(extracted_value)
-                ground_truth_float = float(ground_truth)  # directly try to convert ground_truth
+                ground_truth_float = float(ground_truth)  # Directly try to convert ground_truth
                 
                 # For floating point numbers, use approximate equality
                 return abs(value_float - ground_truth_float) < 1e-6 * max(1, abs(ground_truth_float))
@@ -880,9 +880,9 @@ class Revision:
         # Track latest iteration data for continued improvement
         current_variant_data = variant_data
         
-        # 修改：维护历史记录用于连续收敛检查
-        history = []  # 存储历史的(code, value)对
-        consecutive_same_count = 0  # 连续相同的轮数
+        # Maintain history for consecutive convergence checking
+        history = []  # Store historical (code, value) pairs
+        consecutive_same_count = 0  # Number of consecutive identical rounds
         
         # Get initial values for convergence checking
         initial_code = variant_data.get("code", "")
@@ -890,7 +890,7 @@ class Revision:
         if "optimal_value" in variant_data and variant_data["optimal_value"]:
             initial_value = self.extract_numerical_value(variant_data["optimal_value"])
         
-        # 将初始状态加入历史
+        # Add initial state to history
         history.append((initial_code, initial_value))
         print(f"Initial state for {variant_name}: value = {initial_value}, patience = {self.convergence_patience}")
         
@@ -952,9 +952,9 @@ class Revision:
                     f.write(output)
                 print(f"    ❌ {variant_name} iteration {iteration} failed: Code execution error")
                 
-                # 失败的情况下，重置连续计数
+                # Reset consecutive count on failure
                 consecutive_same_count = 0
-                history.append((code, None))  # 记录失败的状态
+                history.append((code, None))  # Record failed state
                 print(f"    🔄 {variant_name} iteration {iteration}: reset consecutive count due to failure")
                 # Update variant data for next iteration
                 current_variant_data = self.get_variant_data(iter_dir)
@@ -974,10 +974,10 @@ class Revision:
                     optimal_value = self.read_optimal_value(os.path.join(iter_dir, ref_optimal_path))
                     curr_value = self.extract_numerical_value(optimal_value)
                     
-                    # 修改：检查连续收敛
+                    # Check consecutive convergence
                     current_state = (code, curr_value)
                     
-                    # 检查是否与之前的状态相同
+                    # Check if same as previous state
                     if len(history) >= 1:
                         prev_code, prev_value = history[-1]
                         if self.check_convergence(prev_value, curr_value, prev_code, code):
@@ -989,7 +989,7 @@ class Revision:
                     
                     history.append(current_state)
                     
-                    # 检查是否达到连续收敛的要求
+                    # Check if consecutive convergence requirement is met
                     if consecutive_same_count >= self.convergence_patience:
                         print(f"🔄 {variant_name} converged in iteration {iteration} (no significant change for {self.convergence_patience} consecutive iterations)")
                         return {
@@ -1007,8 +1007,8 @@ class Revision:
                     print(f"    📊 {variant_name} iteration {iteration}: value = {curr_value}")
                 else:
                     print(f"⚠️ {variant_name} iteration {iteration} did not produce ref_optimal_value.txt")
-                    consecutive_same_count = 0  # 重置计数
-                    history.append((code, None))  # 记录没有数值的状态
+                    consecutive_same_count = 0  # Reset count
+                    history.append((code, None))  # Record state without numerical value
                     print(f"    🔄 {variant_name} iteration {iteration}: reset consecutive count due to no optimal value")
             
             # Update variant data with current iteration results for next iteration
