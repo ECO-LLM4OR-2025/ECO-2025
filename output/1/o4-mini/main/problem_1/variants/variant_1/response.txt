@@ -1,0 +1,53 @@
++++++
+Sets:
+P = {X, Y}  // set of projects
+
+Variables:
+x_i ∈ ℤ₊ for each i ∈ P  
+  x_X = units allocated to project X  
+  x_Y = units allocated to project Y  
+
+Parameters:
+c_X = 50         // cost per unit for project X  
+c_Y = 30         // cost per unit for project Y  
+B = 1000         // total resource budget  
+d = 200          // minimum excess of X over Y  
+M_X = 700        // max capacity for project X  
+M_Y = 500        // max capacity for project Y  
+
+Constraints:
+1) Budget constraint: x_X + x_Y ≤ B  
+2) Excess requirement: x_X - x_Y ≥ d  
+3) Capacity limits: x_X ≤ M_X, x_Y ≤ M_Y  
+4) Integrality and nonnegativity: x_X, x_Y ∈ ℤ₊  
+
+Objective:
+Minimize total cost = c_X·x_X + c_Y·x_Y
++++++
+=====
+import gurobipy as gp
+from gurobipy import GRB
+
+# Create model
+model = gp.Model("resource_allocation")
+
+# Decision variables
+x_X = model.addVar(vtype=GRB.INTEGER, name="x_X", lb=0, ub=700)
+x_Y = model.addVar(vtype=GRB.INTEGER, name="x_Y", lb=0, ub=500)
+
+# Budget constraint
+model.addConstr(x_X + x_Y <= 1000, name="budget")
+
+# Minimum excess requirement
+model.addConstr(x_X - x_Y >= 200, name="excess")
+
+# Objective: minimize total cost
+model.setObjective(50 * x_X + 30 * x_Y, GRB.MINIMIZE)
+
+# Optimize model
+model.optimize()
+
+# Write optimal value to file
+with open('ref_optimal_value.txt', 'w') as f:
+    f.write(str(int(model.objVal)))
+=====

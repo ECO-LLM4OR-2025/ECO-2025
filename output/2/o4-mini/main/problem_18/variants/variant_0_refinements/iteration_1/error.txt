@@ -1,1 +1,0 @@
-ERROR: gurobipy is not installed. Please install Gurobi Python API (e.g., 'pip install gurobipy') and ensure your Gurobi license is set up.

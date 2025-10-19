@@ -1,0 +1,22 @@
+Sets:
+  P = {X, Y}  (set of projects)
+
+Variables:
+  x_X ∈ Integer, 0 ≤ x_X ≤ 700  (allocation to project X)
+  x_Y ∈ Integer, 0 ≤ x_Y ≤ 500  (allocation to project Y)
+
+Parameters:
+  C_X = 50   (cost per unit for project X)
+  C_Y = 30   (cost per unit for project Y)
+  R_total = 1000   (maximum total resources available)
+  Δ = 200         (minimum excess of X over Y)
+
+Constraints:
+  1. Total resource constraint: x_X + x_Y ≤ R_total
+  2. Excess requirement:        x_X - x_Y ≥ Δ
+  3. Bounds on X:               0 ≤ x_X ≤ 700
+  4. Bounds on Y:               0 ≤ x_Y ≤ 500
+  5. Integrality:               x_X, x_Y are integers
+
+Objective:
+  Minimize total cost = C_X * x_X + C_Y * x_Y

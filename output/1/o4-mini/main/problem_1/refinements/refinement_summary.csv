@@ -1,0 +1,166 @@
+status,iterations,optimal_value,path,convergence_reason,consecutive_same_count,5element_description,code,evaluation_result,problem_id,variant
+Converged,3,10000,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_1/variants/variant_0_refinements/iteration_3,no_change_for_3_iterations,3,,"import gurobipy as gp
+from gurobipy import GRB
+
+def optimize_resources():
+    """"""
+    Build and solve an integer program to allocate resources between
+    Project X and Project Y at minimum cost, subject to:
+      - x_X + x_Y <= 1000 (total budget cap)
+      - x_X - x_Y >= 200  (Project X must exceed Y by at least 200)
+      - 0 <= x_X <= 700, integer
+      - 0 <= x_Y <= 500, integer
+    Writes the optimal cost (integer) to 'ref_optimal_value.txt'.
+    """"""
+    model = None
+    try:
+        # 1. Create model
+        model = gp.Model(""resource_allocation"")
+        # Suppress solver output for cleaner execution
+        model.Params.OutputFlag = 0
+        
+        # 2. Decision variables
+        # alloc_X: units to Project X (0 to 700)
+        # alloc_Y: units to Project Y (0 to 500)
+        alloc_X = model.addVar(vtype=GRB.INTEGER, lb=0, ub=700, name=""alloc_X"")
+        alloc_Y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=500, name=""alloc_Y"")
+        
+        # 3. Objective: minimize total cost = 50 * alloc_X + 30 * alloc_Y
+        model.setObjective(50 * alloc_X + 30 * alloc_Y, GRB.MINIMIZE)
+        
+        # 4. Constraints
+        #   (a) Total budget cap
+        model.addConstr(alloc_X + alloc_Y <= 1000, name=""budget_cap"")
+        #   (b) Project X must exceed Y by at least 200 units
+        model.addConstr(alloc_X - alloc_Y >= 200, name=""excess_requirement"")
+        
+        # 5. Solve the model
+        model.optimize()
+        
+        # 6. Check solver status
+        status = model.Status
+        if status == GRB.OPTIMAL:
+            # Round to nearest integer (though objective is integral)
+            optimal_cost = int(round(model.ObjVal))
+            # 7. Save only the cost value
+            with open(""ref_optimal_value.txt"", ""w"") as fout:
+                fout.write(str(optimal_cost))
+        elif status == GRB.INFEASIBLE:
+            raise RuntimeError(""Optimization model is infeasible."")
+        else:
+            raise RuntimeError(f""Optimization ended with status code {status}."")
+    
+    except gp.GurobiError as ge:
+        # Catch and re-raise Gurobi errors with context
+        raise RuntimeError(f""Gurobi Error {ge.errno}: {ge}"")
+    finally:
+        # Ensure model resources are released
+        if model is not None:
+            model.dispose()
+
+if __name__ == ""__main__"":
+    optimize_resources()",,1,variant_0
+Converged,3,10000,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_1/variants/variant_1_refinements/iteration_3,no_change_for_3_iterations,3,,"import gurobipy as gp
+from gurobipy import GRB
+
+# Problem parameters
+COST_X            = 50    # cost per unit for project X ($)
+COST_Y            = 30    # cost per unit for project Y ($)
+RESOURCE_CAPACITY = 1000  # total available resource units
+EXCESS_REQUIRE    = 200   # x_X - x_Y must be at least this much
+MAX_X             = 700   # maximum units assignable to X
+MAX_Y             = 500   # maximum units assignable to Y
+OUTPUT_FILE       = 'ref_optimal_value.txt'
+
+def main():
+    try:
+        # Create a Gurobi environment and model in a context manager for safe cleanup
+        with gp.Env() as env:
+            env.setParam('OutputFlag', 0)   # turn off solver console output
+            env.setParam('MIPGap', 0.0)     # require zero optimality gap
+
+            model = gp.Model('ResourceAllocation', env=env)
+
+            # Decision variables: integer allocations for X and Y
+            x_X = model.addVar(vtype=GRB.INTEGER, lb=0, ub=MAX_X, name='x_X')
+            x_Y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=MAX_Y, name='x_Y')
+
+            # Constraints
+            # 1) Total allocation cannot exceed the capacity
+            model.addConstr(x_X + x_Y <= RESOURCE_CAPACITY,
+                            name='capacity_constr')
+            # 2) Project X must exceed project Y by at least EXCESS_REQUIRE
+            model.addConstr(x_X - x_Y >= EXCESS_REQUIRE,
+                            name='excess_constr')
+
+            # Objective: Minimize total cost
+            model.setObjective(COST_X * x_X + COST_Y * x_Y, GRB.MINIMIZE)
+
+            # Ensure all updates are registered before optimizing
+            model.update()
+
+            # Optimize the model
+            model.optimize()
+
+            # Check for optimality
+            if model.Status != GRB.OPTIMAL:
+                raise gp.GurobiError(f'Expected OPTIMAL status, got {model.Status}')
+
+            # Round the objective to nearest dollar
+            optimal_cost = int(model.ObjVal + 0.5)
+
+        # Write the result to file (only the number, no extra text)
+        with open(OUTPUT_FILE, 'w') as fout:
+            fout.write(str(optimal_cost))
+
+    except gp.GurobiError as gbe:
+        print(f'Gurobi Error: {gbe}')
+    except Exception as e:
+        print(f'Unexpected Error: {e}')
+
+if __name__ == '__main__':
+    main()",,1,variant_1
+Converged,3,10000,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_1/variants/variant_2_refinements/iteration_3,no_change_for_3_iterations,3,,"import gurobipy as gp
+from gurobipy import GRB, GurobiError
+
+def main():
+    try:
+        # Build model in a context manager for automatic cleanup
+        with gp.Model(""ResourceAllocation"") as model:
+            # --- Decision Variables ---
+            # xX: integer units for project X, between 0 and 700
+            xX = model.addVar(vtype=GRB.INTEGER, lb=0, ub=700, name=""xX"")
+            # xY: integer units for project Y, between 0 and 500
+            xY = model.addVar(vtype=GRB.INTEGER, lb=0, ub=500, name=""xY"")
+
+            # --- Objective ---
+            # Minimize total cost: 50 per unit of X plus 30 per unit of Y
+            model.setObjective(50 * xX + 30 * xY, GRB.MINIMIZE)
+
+            # --- Constraints ---
+            # 1) Total allocation must not exceed 1000 units
+            model.addConstr(xX + xY <= 1000, name=""TotalCapacity"")
+            # 2) Project X must exceed Project Y by at least 200 units
+            model.addConstr(xX - xY >= 200, name=""MinExcess"")
+
+            # Solve the model
+            model.optimize()
+
+            # Check solver status
+            if model.Status != GRB.OPTIMAL:
+                raise GurobiError(f""Optimal solution not found (status {model.Status})"")
+
+            # Retrieve and round the optimal cost
+            optimal_cost = round(model.ObjVal)
+
+        # Save only the numeric cost to the reference file
+        with open('ref_optimal_value.txt', 'w') as f:
+            f.write(str(optimal_cost))
+
+    except GurobiError as e:
+        print(f""Gurobi error: {e}"")
+    except Exception as e:
+        print(f""Unexpected error: {e}"")
+
+if __name__ == ""__main__"":
+    main()",,1,variant_2

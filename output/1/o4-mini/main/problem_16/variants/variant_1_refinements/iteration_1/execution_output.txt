@@ -1,0 +1,3 @@
+Status: Success
+
+Restricted license - for non-production use only - expires 2026-11-23

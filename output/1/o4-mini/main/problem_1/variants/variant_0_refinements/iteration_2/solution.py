@@ -1,0 +1,44 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+def main():
+    try:
+        # 1. Create a new Gurobi model
+        model = gp.Model("resource_allocation")
+        
+        # 2. Solver settings: turn off log output for cleaner execution
+        model.setParam(GRB.Param.OutputFlag, 0)
+        
+        # 3. Decision variables
+        #    x_X: integer units allocated to project X, between 0 and 700
+        #    x_Y: integer units allocated to project Y, between 0 and 500
+        x_X = model.addVar(vtype=GRB.INTEGER, lb=0, ub=700, name="x_X")
+        x_Y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=500, name="x_Y")
+        
+        # 4. Objective: minimize total cost = 50*x_X + 30*x_Y
+        model.setObjective(50 * x_X + 30 * x_Y, GRB.MINIMIZE)
+        
+        # 5. Constraints:
+        #    (a) Total resource constraint: x_X + x_Y ≤ 1000
+        #    (b) Success requirement:       x_X - x_Y ≥ 200
+        model.addConstr(x_X + x_Y <= 1000, name="total_resource")
+        model.addConstr(x_X - x_Y >= 200, name="excess_requirement")
+        
+        # 6. Optimize the model
+        model.optimize()
+        
+        # 7. Check for optimal solution and write the integer cost to file
+        if model.status == GRB.OPTIMAL:
+            optimal_cost = int(model.objVal)  # already integral
+            with open("ref_optimal_value.txt", "w") as fout:
+                fout.write(str(optimal_cost))
+        else:
+            raise RuntimeError(f"Model did not solve to optimality. Status code: {model.status}")
+    
+    except gp.GurobiError as ge:
+        print(f"GurobiError {ge.errno}: {ge}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    main()

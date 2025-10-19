@@ -1,0 +1,59 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+# Problem parameters
+COST_X    = 50    # cost per unit for project X
+COST_Y    = 30    # cost per unit for project Y
+BUDGET    = 1000  # total available resources
+EXCESS    = 200   # minimum x_X - x_Y
+MAX_X     = 700   # max units for project X
+MAX_Y     = 500   # max units for project Y
+OUTPUT_FILE = 'ref_optimal_value.txt'
+
+def main():
+    try:
+        # Create a new Gurobi model
+        model = gp.Model("Resource_Allocation")
+        
+        # Optional: suppress Gurobi console output if not needed
+        # model.Params.OutputFlag = 0
+        
+        # Decision variables
+        # x_X: units to allocate to project X (integer, [0, MAX_X])
+        # x_Y: units to allocate to project Y (integer, [0, MAX_Y])
+        x_X = model.addVar(vtype=GRB.INTEGER, name="x_X", lb=0, ub=MAX_X)
+        x_Y = model.addVar(vtype=GRB.INTEGER, name="x_Y", lb=0, ub=MAX_Y)
+        
+        # Integrate new variables
+        model.update()
+        
+        # Add constraints
+        # 1) Total allocation must not exceed budget
+        model.addConstr(x_X + x_Y <= BUDGET, name="budget_constraint")
+        # 2) Project X must exceed project Y by at least EXCESS units
+        model.addConstr(x_X - x_Y >= EXCESS, name="excess_constraint")
+        
+        # Objective: minimize total cost
+        model.setObjective(COST_X * x_X + COST_Y * x_Y, GRB.MINIMIZE)
+        
+        # Solve the model
+        model.optimize()
+        
+        # Check if an optimal solution was found
+        if model.Status != GRB.OPTIMAL:
+            raise gp.GurobiError(f"Optimization ended with status {model.Status}, not OPTIMAL.")
+        
+        # Retrieve the optimal objective value (an integer)
+        optimal_cost = int(model.ObjVal)
+        
+        # Write the result to file (value only)
+        with open(OUTPUT_FILE, 'w') as f:
+            f.write(str(optimal_cost))
+    
+    except gp.GurobiError as e:
+        print(f"Gurobi error occurred: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+if __name__ == "__main__":
+    main()

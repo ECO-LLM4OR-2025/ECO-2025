@@ -1,0 +1,80 @@
+You are an expert operations research analyst. I need your help evaluating and diagnosing issues in an optimization problem solution. Please perform a systematic Chain-of-Thought evaluation across three key dimensions.
+
+    ## Problem Description:
+    A store plans to formulate the purchasing and sales plan for a certain product for the first quarter of next year. It is known that the warehouse capacity of the store can store up to 500 units of the product, and there are 200 units in stock at the end of this year. The store purchases goods once at the beginning of each month. The purchasing and selling prices of the product in each month are shown in Table 1.3.
+
+Table 1.3
+
+| Month | 1 | 2 | 3 |
+| :---: | :---: | :---: | :---: |
+| Purchasing Price (Yuan) | 8 | 6 | 9 |
+| Selling Price (Yuan) | 9 | 8 | 10 |
+
+Now, determine how many units should be purchased and sold each month to maximize the total profit, and express this problem as a linear programming model.
+
+    ## Current Iteration: 3
+
+    ## Variant Information:
+    
+### Current Solution Code:
+```python
+import gurobipy as gp
+from gurobipy import GRB
+import sys
+
+#
+```
+
+### Execution Result: SUCCESS
+Full output:
+Status: Success
+
+
+
+    ## Please perform systematic evaluation across THREE dimensions:
+
+    ### 🔍 Dimension 1: Definition Consistency
+    Analyze whether the five element aligns with the problem description:
+    - Are all variables properly defined and named according to the problem context?
+    - Do the parameter values match what's described in the problem?
+    - Are all problem entities (e.g., facilities, customers, resources) correctly represented?
+    - Is the problem scope and scale correctly captured?
+
+    ### 🔍 Dimension 2: Structural Soundness  
+    Evaluate the mathematical model structure:
+    - Is the objective function correctly formulated (minimization vs maximization)?
+    - Are all necessary constraints included?
+    - Are there any missing or redundant constraints?
+    - Is the model type appropriate (linear, integer, mixed-integer)?
+    - Are variable types (continuous, binary, integer) correctly specified?
+
+    ### 🔍 Dimension 3: Numerical Validity
+    Assess the numerical aspects and execution:
+    - If successful: Does the optimal value seem reasonable given the problem context?
+    - If failed: What is the root cause of the execution error?
+    - Are there any obvious numerical issues (infeasibility, unboundedness)?
+    - Are the constraint right-hand-sides and coefficients reasonable?
+
+    ## Required Output Format:
+
+    **DIMENSION 1 - Definition Consistency:**
+    Diagnosis: [Your analysis]
+    Issues Found: [List specific issues or "None"]
+    Confidence: [High/Medium/Low]
+
+    **DIMENSION 2 - Structural Soundness:**  
+    Diagnosis: [Your analysis]
+    Issues Found: [List specific issues or "None"]
+    Confidence: [High/Medium/Low]
+
+    **DIMENSION 3 - Numerical Validity:**
+    Diagnosis: [Your analysis] 
+    Issues Found: [List specific issues or "None"]
+    Confidence: [High/Medium/Low]
+
+    **OVERALL ASSESSMENT:**
+    Primary Issues: [Rank the most critical issues to fix]
+    Recommended Actions: [Specific actionable recommendations]
+
+    Please provide thorough, specific analysis for each dimension. Focus on identifying concrete, fixable issues rather than general observations.
+    

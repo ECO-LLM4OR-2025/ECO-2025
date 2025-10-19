@@ -1,0 +1,4 @@
+Status: Success
+
+Restricted license - for non-production use only - expires 2026-11-23
+General exception: must be real number, not gurobipy._core.LinExpr

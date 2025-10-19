@@ -1,0 +1,106 @@
+Key Improvements:
+1. Explicitly require the user to define the monthly demand vector D and document this clearly at the top of the script.
+2. After solving, extract and output the optimal purchase (Pₜ), sales (Sₜ), and end‐of‐month inventory (Iₜ) decisions so the user has a full plan, not just the profit.
+3. Write the optimal profit to `ref_optimal_value.txt` (value only) and the decision plan to a new file `ref_plan.txt`.
+4. Include robust error handling for Gurobi errors and general exceptions.
+5. Add clear comments explaining data inputs, model setup, and output steps.
+
+=====
+```python
+import gurobipy as gp
+from gurobipy import GRB
+import sys
+
+# ======================== User Data Section ========================
+# Define your planning horizon, cost, price, capacity, and demand here:
+
+# Months to plan over
+T = [1, 2, 3]
+
+# Purchase cost per unit in each month
+c = {1: 8, 2: 6, 3: 9}
+
+# Selling price per unit in each month
+s = {1: 9, 2: 8, 3: 10}
+
+# Starting inventory at month 0
+I0 = 200
+
+# Warehouse capacity (max units held at any time)
+Cap = 500
+
+# Monthly demand forecasts (must be provided by the user)
+# Replace these example values with your actual forecasted demand.
+D = {1: 300, 2: 400, 3: 350}
+# ==================================================================
+
+try:
+    # Create the optimization model
+    m = gp.Model("Purchasing_and_Sales_Plan")
+    m.Params.OutputFlag = 0    # suppress solver output
+
+    # Decision variables
+    # P[t] = units purchased in month t
+    P = m.addVars(T, name="P", lb=0.0, vtype=GRB.CONTINUOUS)
+    # S[t] = units sold in month t
+    S = m.addVars(T, name="S", lb=0.0, vtype=GRB.CONTINUOUS)
+    # I[t] = end-of-month inventory for month t
+    I = m.addVars(T, name="I", lb=0.0, vtype=GRB.CONTINUOUS)
+
+    # Inventory balance and capacity constraints
+    for t in T:
+        # Inventory balance: current end-stock = prev-stock + purchases - sales
+        if t == 1:
+            m.addConstr(I[t] == I0 + P[t] - S[t], name="inv_balance_1")
+            # instantaneous capacity at beginning of month 1
+            m.addConstr(I0 + P[t] <= Cap, name="cap_inst_1")
+        else:
+            m.addConstr(I[t] == I[t-1] + P[t] - S[t], name=f"inv_balance_{t}")
+            # instantaneous capacity at beginning of month t
+            m.addConstr(I[t-1] + P[t] <= Cap, name=f"cap_inst_{t}")
+
+        # end-of-month capacity
+        m.addConstr(I[t] <= Cap, name=f"cap_end_{t}")
+
+        # Sales cannot exceed demand
+        m.addConstr(S[t] <= D[t], name=f"demand_{t}")
+
+    # Objective: maximize total profit = sum (selling revenue - purchase cost)
+    profit = gp.quicksum(s[t] * S[t] - c[t] * P[t] for t in T)
+    m.setObjective(profit, GRB.MAXIMIZE)
+
+    # Solve the model
+    m.optimize()
+
+    # Prepare outputs
+    status = m.status
+    if status == GRB.OPTIMAL:
+        opt_profit = m.objVal
+        # Write optimal profit to file (value only)
+        with open('ref_optimal_value.txt', 'w') as f_out:
+            f_out.write(f"{opt_profit:.6f}")
+
+        # Write detailed decision plan to a second file
+        with open('ref_plan.txt', 'w') as f_plan:
+            f_plan.write("Month\tPurchase\tSales\tEndInventory\n")
+            for t in T:
+                p_val = P[t].x
+                s_val = S[t].x
+                i_val = I[t].x
+                f_plan.write(f"{t}\t{p_val:.6f}\t{s_val:.6f}\t{i_val:.6f}\n")
+
+    else:
+        # Infeasible or unbounded
+        with open('ref_optimal_value.txt', 'w') as f_out:
+            f_out.write("NoSolution")
+
+except gp.GurobiError as e:
+    sys.stderr.write(f"Gurobi error: {e.message}\n")
+    with open('ref_optimal_value.txt', 'w') as f_out:
+        f_out.write("Error")
+except Exception as e:
+    sys.stderr.write(f"Unexpected error: {str(e)}\n")
+    with open('ref_optimal_value.txt', 'w') as f_out:
+        f_out.write("Error")
+```
+=====

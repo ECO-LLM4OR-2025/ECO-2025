@@ -1,0 +1,73 @@
+Key Improvements:
+- Added a dedicated optimization function with a clear docstring for modularity and readability.
+- Improved variable naming (`alloc_X`, `alloc_Y`) to reflect their purpose.
+- Included explicit status checks for INFEASIBLE and other non‐optimal outcomes, raising meaningful errors.
+- Ensured the Gurobi model is properly disposed in a `finally` block to free resources.
+- Wrapped file writing in a context manager, writing only the integer optimal cost.
+- Added comments explaining each major step.
+
+=====
+```python
+import gurobipy as gp
+from gurobipy import GRB
+
+def optimize_resources():
+    """
+    Build and solve an integer program to allocate resources between
+    Project X and Project Y at minimum cost, subject to:
+      - x_X + x_Y <= 1000 (total budget cap)
+      - x_X - x_Y >= 200  (Project X must exceed Y by at least 200)
+      - 0 <= x_X <= 700, integer
+      - 0 <= x_Y <= 500, integer
+    Writes the optimal cost (integer) to 'ref_optimal_value.txt'.
+    """
+    model = None
+    try:
+        # 1. Create model
+        model = gp.Model("resource_allocation")
+        # Suppress solver output for cleaner execution
+        model.Params.OutputFlag = 0
+        
+        # 2. Decision variables
+        # alloc_X: units to Project X (0 to 700)
+        # alloc_Y: units to Project Y (0 to 500)
+        alloc_X = model.addVar(vtype=GRB.INTEGER, lb=0, ub=700, name="alloc_X")
+        alloc_Y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=500, name="alloc_Y")
+        
+        # 3. Objective: minimize total cost = 50 * alloc_X + 30 * alloc_Y
+        model.setObjective(50 * alloc_X + 30 * alloc_Y, GRB.MINIMIZE)
+        
+        # 4. Constraints
+        #   (a) Total budget cap
+        model.addConstr(alloc_X + alloc_Y <= 1000, name="budget_cap")
+        #   (b) Project X must exceed Y by at least 200 units
+        model.addConstr(alloc_X - alloc_Y >= 200, name="excess_requirement")
+        
+        # 5. Solve the model
+        model.optimize()
+        
+        # 6. Check solver status
+        status = model.Status
+        if status == GRB.OPTIMAL:
+            # Round to nearest integer (though objective is integral)
+            optimal_cost = int(round(model.ObjVal))
+            # 7. Save only the cost value
+            with open("ref_optimal_value.txt", "w") as fout:
+                fout.write(str(optimal_cost))
+        elif status == GRB.INFEASIBLE:
+            raise RuntimeError("Optimization model is infeasible.")
+        else:
+            raise RuntimeError(f"Optimization ended with status code {status}.")
+    
+    except gp.GurobiError as ge:
+        # Catch and re-raise Gurobi errors with context
+        raise RuntimeError(f"Gurobi Error {ge.errno}: {ge}")
+    finally:
+        # Ensure model resources are released
+        if model is not None:
+            model.dispose()
+
+if __name__ == "__main__":
+    optimize_resources()
+```
+=====

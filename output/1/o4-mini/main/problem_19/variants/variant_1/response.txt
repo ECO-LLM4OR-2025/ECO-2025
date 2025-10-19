@@ -1,0 +1,80 @@
++++++
+Sets:
+- M = {A, B, C}, the set of manufacturers.
+
+Variables:
+- x_A, x_B, x_C ∈ ℤ₊: number of orders from manufacturers A, B, C.
+- y_A, y_B, y_C ∈ {0,1}: 1 if we place at least one order from A, B, C, respectively; 0 otherwise.
+
+Parameters:
+- chairs_per_order: a_A = 15, a_B = 10, a_C = 10
+- cost_per_order: c_A = 15*50 = 750, c_B = 10*45 = 450, c_C = 10*40 = 400
+- L = 100 (minimum total chairs)
+- U = 500 (maximum total chairs)
+
+Constraints:
+1. Total chairs between 100 and 500:
+   15 x_A + 10 x_B + 10 x_C ≥ 100  
+   15 x_A + 10 x_B + 10 x_C ≤ 500
+2. Link order counts to binaries (big-M linking):
+   x_A ≤ ⌊U/15⌋ y_A,   x_A ≥ y_A  
+   x_B ≤ ⌊U/10⌋ y_B,    x_B ≥ y_B  
+   x_C ≤ ⌊U/10⌋ y_C,    x_C ≥ y_C  
+3. Logical implications:
+   If we order from A then from B: y_A ≤ y_B  
+   If we order from B then from C: y_B ≤ y_C  
+
+Objective:
+- Minimize total cost = 750 x_A + 450 x_B + 400 x_C
++++++
+=====
+import gurobipy as gp
+from gurobipy import GRB
+
+def main():
+    # Create model
+    model = gp.Model()
+
+    # Variables: number of orders (integer) and binary indicators
+    xA = model.addVar(vtype=GRB.INTEGER, name="xA")
+    xB = model.addVar(vtype=GRB.INTEGER, name="xB")
+    xC = model.addVar(vtype=GRB.INTEGER, name="xC")
+    yA = model.addVar(vtype=GRB.BINARY,  name="yA")
+    yB = model.addVar(vtype=GRB.BINARY,  name="yB")
+    yC = model.addVar(vtype=GRB.BINARY,  name="yC")
+
+    # Parameters
+    aA, aB, aC = 15, 10, 10
+    cA, cB, cC = 750, 450, 400
+    L, U = 100, 500
+
+    # Constraints
+    model.addConstr(aA*xA + aB*xB + aC*xC >= L, name="minChairs")
+    model.addConstr(aA*xA + aB*xB + aC*xC <= U, name="maxChairs")
+
+    # Big-M linking between x and y:
+    model.addConstr(xA <= (U//aA) * yA, name="link_xA_yA")
+    model.addConstr(xB <= (U//aB) * yB, name="link_xB_yB")
+    model.addConstr(xC <= (U//aC) * yC, name="link_xC_yC")
+    model.addConstr(xA >= yA,               name="min_xA_if_yA")
+    model.addConstr(xB >= yB,               name="min_xB_if_yB")
+    model.addConstr(xC >= yC,               name="min_xC_if_yC")
+
+    # Logical implications
+    model.addConstr(yA <= yB, name="ifA_then_B")
+    model.addConstr(yB <= yC, name="ifB_then_C")
+
+    # Objective: minimize total cost
+    model.setObjective(cA*xA + cB*xB + cC*xC, GRB.MINIMIZE)
+
+    # Optimize
+    model.optimize()
+
+    # Save optimal value
+    if model.status == GRB.OPTIMAL:
+        with open('ref_optimal_value.txt', 'w') as f:
+            f.write(str(model.objVal))
+
+if __name__ == "__main__":
+    main()
+=====

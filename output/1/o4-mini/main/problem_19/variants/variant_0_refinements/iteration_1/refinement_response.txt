@@ -1,0 +1,77 @@
+Key Improvements:
+1. Replaced the big-M lower‐link constraints (xᵢ ≥ yᵢ) with Gurobi indicator constraints to enforce xᵢ=0 when yᵢ=0 and xᵢ≥1 when yᵢ=1, yielding a tighter formulation.
+2. Used indicator constraints for the logical implications (A→B and B→C) instead of ad‐hoc linear constraints.
+3. Precomputed `cost_per_order` for readability and simplified the objective.
+4. Wrapped the model build‐and‐solve in a `main()` function with try/except blocks for proper Gurobi and general error handling.
+5. Suppressed solver output for a clean execution and ensured only the numeric optimal value is written to the output file.
+
+=====
+import gurobipy as gp
+from gurobipy import GRB
+
+def main():
+    try:
+        # Data setup
+        manufacturers     = ["A", "B", "C"]
+        chairs_per_order  = {"A": 15, "B": 10, "C": 10}
+        cost_per_chair    = {"A": 50, "B": 45, "C": 40}
+        # Precompute cost per order
+        cost_per_order    = {i: chairs_per_order[i] * cost_per_chair[i] 
+                              for i in manufacturers}
+        min_chairs, max_chairs = 100, 500
+        # Big‐M values for upper linking
+        M = {i: max_chairs // chairs_per_order[i] for i in manufacturers}
+
+        # Create model
+        model = gp.Model("furniture_ordering")
+        # Suppress solver output
+        model.Params.OutputFlag = 0
+
+        # Decision variables
+        # x[i]: number of orders from i (integer ≥ 0)
+        # y[i]: binary flag, 1 if manufacturer i is used
+        x = model.addVars(manufacturers, vtype=GRB.INTEGER, lb=0, name="orders")
+        y = model.addVars(manufacturers, vtype=GRB.BINARY,  name="use")
+
+        # Constraints
+        # 1) Total chairs bounds
+        model.addConstr(
+            gp.quicksum(chairs_per_order[i] * x[i] for i in manufacturers) 
+            >= min_chairs, name="min_chairs")
+        model.addConstr(
+            gp.quicksum(chairs_per_order[i] * x[i] for i in manufacturers) 
+            <= max_chairs, name="max_chairs")
+
+        # 2) Link x and y variables via indicator constraints:
+        #    y[i]=0 ⇒ x[i]=0 ;  y[i]=1 ⇒ x[i]≥1 ; and x[i] ≤ M[i]*y[i]
+        for i in manufacturers:
+            model.addGenConstrIndicator(y[i], 0, x[i] == 0, name=f"zero_{i}")
+            model.addGenConstrIndicator(y[i], 1, x[i] >= 1, name=f"one_{i}")
+            model.addConstr(x[i] <= M[i] * y[i],         name=f"up_{i}")
+
+        # 3) Logical implications via indicators
+        #    If A is used then B must be used; if B is used then C must be used
+        model.addGenConstrIndicator(y["A"], 1, y["B"] == 1, name="A_implies_B")
+        model.addGenConstrIndicator(y["B"], 1, y["C"] == 1, name="B_implies_C")
+
+        # Objective: minimize total cost
+        model.setObjective(
+            gp.quicksum(cost_per_order[i] * x[i] for i in manufacturers),
+            GRB.MINIMIZE)
+
+        # Optimize
+        model.optimize()
+
+        # Output optimal value if found
+        if model.Status == GRB.OPTIMAL:
+            with open("ref_optimal_value.txt", "w") as f:
+                f.write(str(int(model.ObjVal)))
+
+    except gp.GurobiError as e:
+        print(f"Gurobi Error: {e}")
+    except Exception as e:
+        print(f"General Error: {e}")
+
+if __name__ == "__main__":
+    main()
+=====

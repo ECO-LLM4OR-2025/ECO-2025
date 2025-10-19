@@ -1,0 +1,27 @@
+Sets:
+T = {1,2,3}  // months in the planning horizon
+
+Variables:
+P_t ≥ 0  continuous  // units purchased in month t
+S_t ≥ 0  continuous  // units sold in month t
+I_t ≥ 0  continuous  // inventory at the end of month t
+
+Parameters:
+c_t = {8, 6, 9}      // purchase price in month t
+s_t = {9, 8, 10}     // selling price in month t
+I_0 = 200            // initial inventory at start of month 1
+Cap = 500            // warehouse capacity
+
+Constraints:
+1. Inventory balance for each t ∈ T:
+   I_t = I_{t-1} + P_t - S_t
+
+2. Capacity limit for each t ∈ T:
+   I_t ≤ Cap
+
+3. Nonnegativity:
+   P_t ≥ 0, S_t ≥ 0, I_t ≥ 0 ∀ t ∈ T
+
+Objective:
+Maximize total profit:
+   Maximize ∑_{t∈T} (s_t * S_t − c_t * P_t)

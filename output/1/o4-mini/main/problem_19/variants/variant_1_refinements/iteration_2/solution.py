@@ -1,0 +1,94 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+def main():
+    try:
+        # Create a new model
+        model = gp.Model("FurnitureOrder")
+        
+        # Suppress solver output for cleaner logs
+        model.Params.OutputFlag = 0
+        # Fix random seed for reproducibility
+        model.Params.Seed = 1
+
+        # Data
+        manufacturers = ['A', 'B', 'C']
+        chairs_per_order = {'A':15, 'B':10, 'C':10}
+        cost_per_order   = {'A':15*50, 'B':10*45, 'C':10*40}
+        min_chairs = 100
+        max_chairs = 500
+
+        # Big-M for each manufacturer (max possible orders)
+        max_orders = {m: max_chairs // chairs_per_order[m] for m in manufacturers}
+
+        # Decision variables
+        # x[m]: integer number of orders from m, 0 <= x[m] <= max_orders[m]
+        # y[m]: binary indicator whether we order at least once from m
+        x = model.addVars(
+            manufacturers,
+            vtype=GRB.INTEGER,
+            lb=0,
+            ub=max_orders,
+            name="x"
+        )
+        y = model.addVars(
+            manufacturers,
+            vtype=GRB.BINARY,
+            name="y"
+        )
+
+        # Objective: minimize total ordering cost
+        model.setObjective(
+            gp.quicksum(cost_per_order[m] * x[m] for m in manufacturers),
+            GRB.MINIMIZE
+        )
+
+        # 1) Total chairs constraints: between min_chairs and max_chairs
+        model.addConstr(
+            gp.quicksum(chairs_per_order[m] * x[m] for m in manufacturers) 
+            >= min_chairs,
+            name="MinTotalChairs"
+        )
+        model.addConstr(
+            gp.quicksum(chairs_per_order[m] * x[m] for m in manufacturers) 
+            <= max_chairs,
+            name="MaxTotalChairs"
+        )
+
+        # 2) Linking x and y: if y[m]=0 => x[m]=0; if y[m]=1 => x[m]>=1
+        model.addConstrs(
+            (x[m] <= max_orders[m] * y[m] for m in manufacturers),
+            name="Link_x_le_My"
+        )
+        model.addConstrs(
+            (x[m] >= y[m] for m in manufacturers),
+            name="Link_x_ge_y"
+        )
+
+        # 3) Logical implications:
+        #    If orders from A => must order from B; A ⇒ B: y[A] <= y[B]
+        #    If orders from B => must order from C; B ⇒ C: y[B] <= y[C]
+        model.addConstr(y['A'] <= y['B'], name="IfAthenB")
+        model.addConstr(y['B'] <= y['C'], name="IfBthenC")
+
+        # Optimize the model
+        model.optimize()
+
+        # After optimization, write only the optimal value to file
+        if model.Status == GRB.OPTIMAL:
+            opt_val = model.ObjVal
+            try:
+                with open('ref_optimal_value.txt', 'w') as f:
+                    f.write(f"{int(opt_val)}")
+            except IOError as ioe:
+                print(f"File write error: {ioe}")
+        else:
+            print(f"Solver ended with status {model.Status}")
+
+    except gp.GurobiError as ge:
+        print(f"Gurobi error: {ge.errno} - {ge}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+if __name__ == "__main__":
+    main()

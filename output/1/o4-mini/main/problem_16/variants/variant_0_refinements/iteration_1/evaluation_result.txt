@@ -1,0 +1,60 @@
+**DIMENSION 1 – Definition Consistency**  
+Diagnosis:  
+The model’s five-tuple matches the textual description in almost every respect:  
+• Sets and indices (months 1–3) are correct.  
+• Decision variables xₜ (purchase), yₜ (sales), sₜ (end-of-month inventory) are sensibly named.  
+• Parameters bₜ, pₜ, s₀=200, S_max=500 agree with the statement.  
+
+However, the verbal problem implicitly assumes there is a finite market demand or some limit on how many units can actually be sold each month. No such demand data appear in the model. As written, the store can buy unlimited product and immediately turn around and sell it within the same month, respecting only the end-of-month capacity constraint sₜ≤500.  
+
+Issues Found:  
+• Missing Demand Constraints: the model never caps yₜ by any realistic monthly demand Dₜ.  
+• No salvage or terminal‐inventory treatment: leftover stock at month 3 has no penalty or value, which may not reflect reality (though the problem statement doesn’t specify it).  
+
+Confidence: High  
+
+**DIMENSION 2 – Structural Soundness**  
+Diagnosis:  
+• Objective: correctly set as maximize ∑(pₜ·yₜ–bₜ·xₜ).  
+• Inventory‐balance and capacity constraints: correctly linear, one per month.  
+• Variable types: continuous non-negative – reasonable if fractional units allowed.  
+
+Missing/Redundant Constraints:  
+• Missing upper bounds on yₜ (month-t demand) ⇒ allows infinite sales as soon as inventory arrives.  
+• No upper bound on xₜ (procurement capacity) ⇒ infinite buying is feasible provided it is immediately sold.  
+
+Model Type: pure LP is appropriate once demand is bounded; no integer or binary structure is implied.  
+
+Issues Found:  
+• Demand constraints yₜ ≤ Dₜ are absent.  
+• No procurement limit or lead‐time restrictions.  
+• No terminal inventory requirement/valuation (e.g. s₃=0 or salvage value).  
+
+Confidence: High  
+
+**DIMENSION 3 – Numerical Validity**  
+Diagnosis:  
+The Gurobi run reports “Infeasible or unbounded model” in 0 iterations. A little manual analysis shows it is in fact unbounded:  
+– In any month t, the store can choose xₜ large, set yₜ≈xₜ+(previous inventory) so that end inventory sₜ ≈ 0 (respecting sₜ≤500), and pocket (pₜ–bₜ)·xₜ profit on each extra unit.  
+– Month 2 has a positive margin (p₂–b₂=2), so infinite profit is possible.  
+
+Issues Found:  
+• Unboundedness due to missing demand or purchase‐capacity constraints.  
+
+Confidence: High  
+
+**OVERALL ASSESSMENT**  
+Primary Issues:  
+1. **Unbounded LP** – No cap on sales (yₜ) or purchases (xₜ) ⇒ infinite profit.  
+2. **Missing demand data** – yₜ must be bounded by realistic monthly demand Dₜ.  
+3. **Terminal inventory treatment** – usually either require s₃=0 or assign a salvage value/cost.  
+
+Recommended Actions:  
+1. Introduce explicit monthly demand limits: add constraints  
+   yₜ ≤ Dₜ  for t=1,2,3  (populate Dₜ from data or assume values).  
+2. If the store cannot order unlimited product in a single month, add purchase‐capacity constraints, e.g.  
+   xₜ ≤ Q_max.  
+3. Decide on end-of-horizon inventory policy: either fix s₃=0 (no leftovers) or include a salvage value term in the objective.  
+4. Re-run optimization to verify boundedness and reasonableness of the resulting purchase/sales plan.  
+
+With those fixes the model will become well-posed and deliver a unique, realistic maximum-profit solution.

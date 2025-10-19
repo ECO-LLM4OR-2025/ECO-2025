@@ -1,3 +1,0 @@
-Status: Error
-
-ERROR: Gurobi Python interface is not installed.

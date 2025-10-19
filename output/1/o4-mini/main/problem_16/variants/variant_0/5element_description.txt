@@ -1,0 +1,27 @@
+Sets:
+T = {1, 2, 3}  // Index set for months
+
+Variables:
+x_t ≥ 0  (continuous)  // Units purchased in month t, for t ∈ T
+y_t ≥ 0  (continuous)  // Units sold in month t, for t ∈ T
+s_t ≥ 0  (continuous)  // Inventory at the end of month t, for t ∈ T
+
+Parameters:
+b_t       // Purchase price in month t (b_1=8, b_2=6, b_3=9)
+p_t       // Selling price in month t  (p_1=9, p_2=8, p_3=10)
+s0 = 200  // Initial inventory at end of month 0
+S_max = 500 // Warehouse capacity
+
+Constraints:
+1) Inventory balance for each t ∈ T:
+   s_t = (s_{t-1}) + x_t - y_t
+   where s_{0} = s0
+
+2) Capacity limit for each t ∈ T:
+   s_t ≤ S_max
+
+3) Non-negativity for all decision variables:
+   x_t, y_t, s_t ≥ 0
+
+Objective:
+Maximize total profit = ∑_{t ∈ T} (p_t * y_t − b_t * x_t)

@@ -1,0 +1,55 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+# Problem parameters
+COST_X           = 50    # cost per unit for project X ($)
+COST_Y           = 30    # cost per unit for project Y ($)
+RESOURCE_CAPACITY = 1000  # maximum total resource units available
+EXCESS           = 200   # minimum required difference x_X - x_Y
+MAX_X            = 700   # upper bound on units for project X
+MAX_Y            = 500   # upper bound on units for project Y
+
+OUTPUT_FILE = 'ref_optimal_value.txt'
+
+def main():
+    try:
+        # Create a new model
+        model = gp.Model("Resource_Allocation")
+        
+        # Suppress Gurobi output (set to 1 to see log)
+        model.Params.OutputFlag = 0
+        
+        # Decision variables: integer allocations for X and Y
+        x_X = model.addVar(vtype=GRB.INTEGER, lb=0, ub=MAX_X, name="x_X")
+        x_Y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=MAX_Y, name="x_Y")
+        
+        # Constraints
+        # 1) Total allocation cannot exceed the resource capacity
+        model.addConstr(x_X + x_Y <= RESOURCE_CAPACITY, name="capacity_constraint")
+        # 2) Project X must exceed project Y by at least EXCESS units
+        model.addConstr(x_X - x_Y >= EXCESS, name="excess_constraint")
+        
+        # Objective: minimize total cost
+        model.setObjective(COST_X * x_X + COST_Y * x_Y, GRB.MINIMIZE)
+        
+        # Optimize
+        model.optimize()
+        
+        # Check solution status
+        if model.Status != GRB.OPTIMAL:
+            raise gp.GurobiError(f"Solver ended with status {model.Status}, expected OPTIMAL.")
+        
+        # Extract integer objective value
+        optimal_cost = int(model.ObjVal + 0.5)
+        
+        # Write only the numeric result to the output file
+        with open(OUTPUT_FILE, 'w') as f:
+            f.write(str(optimal_cost))
+    
+    except gp.GurobiError as gbe:
+        print(f"Gurobi Error: {gbe}")
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+
+if __name__ == "__main__":
+    main()

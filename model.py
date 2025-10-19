@@ -158,6 +158,60 @@ class Generator:
 
         return ele, code
 
+    def parse_objective_direction(self, five_element_text):
+        """解析目标方向（maximize/minimize）"""
+        if not five_element_text:
+            return None
+        
+        text_lower = five_element_text.lower()
+        
+        # 查找Objective部分
+        obj_start = text_lower.find("objective:")
+        if obj_start == -1:
+            obj_start = text_lower.find("objective")
+        
+        if obj_start != -1:
+            # 提取Objective部分的内容
+            obj_section = text_lower[obj_start:obj_start + 200]  # 取200个字符
+            
+            if "maximize" in obj_section or "max" in obj_section:
+                return "maximize"
+            elif "minimize" in obj_section or "min" in obj_section:
+                return "minimize"
+        
+        return None
+
+    def extract_numerical_value(self, text):
+        """从文本中提取数值"""
+        if text is None:
+            return None
+        
+        # 使用正则表达式提取数值
+        pattern = r'-?\d+(?:\.\d+)?'
+        matches = re.findall(pattern, text)
+        
+        if matches:
+            try:
+                return float(matches[0])
+            except ValueError:
+                return None
+        
+        return None
+
+    def check_convergence(self, prev_value, curr_value, prev_code, curr_code, tolerance=1e-6):
+        """检查是否收敛（数值和代码都没有显著变化）"""
+        # 检查数值收敛
+        if prev_value is not None and curr_value is not None:
+            if abs(prev_value - curr_value) < tolerance:
+                return True
+        
+        # 检查代码收敛（简单的字符串比较）
+        if prev_code and curr_code:
+            if prev_code.strip() == curr_code.strip():
+                return True
+        
+        return False
+
     def execute_code(self, file_path):
         """Execute code and return output and status"""
         try:
@@ -220,7 +274,7 @@ class Generator:
         # Main output DataFrame to store all results
         df_output = pd.DataFrame(columns=[
             'id', 'variant_id', 'question', 
-            'ground_truth', 'code', 'code_excute_result', 'status'
+            'ground_truth', 'code', 'code_excute_result', 'status', 'objective_direction', 'optimal_value'
         ])
     
         total_count = self.count_jsonl_lines()
@@ -277,6 +331,7 @@ class Generator:
                     
                     # Track variants for this problem
                     problem_variants = []
+                    objective_directions = []  # 收集所有变体的目标方向
                     
                     # Generate multiple variants for this problem
                     for variant_num in range(self.variants_per_problem):
@@ -303,9 +358,14 @@ class Generator:
                         response_path = os.path.join(variant_dir, "response.txt")
                         self.save_response(response, response_path)
                         
-                        # Extract code
+                        # Extract code and five-element description
                         ele, code = self.extract_code(response)
                         print(f'Processing variant {variant_id}')
+                        
+                        # Parse objective direction
+                        objective_direction = self.parse_objective_direction(ele)
+                        if objective_direction:
+                            objective_directions.append(objective_direction)
                         
                         # Save code to files in variant directory
                         ele_filename = "5element_description.txt"
@@ -319,6 +379,7 @@ class Generator:
 
                         # Execute code
                         output, status = self.execute_code(code_file_path)
+                        optimal_value = None
 
                         # Save execution output
                         output_path = os.path.join(variant_dir, "execution_output.txt")
@@ -337,6 +398,9 @@ class Generator:
                             ref_optimal_path = "ref_optimal_value.txt"
                             if os.path.exists(ref_optimal_path):
                                 shutil.copy(ref_optimal_path, os.path.join(variant_dir, ref_optimal_path))
+                                # Read optimal value
+                                with open(ref_optimal_path, 'r') as f:
+                                    optimal_value = f.read().strip()
                                 os.remove(ref_optimal_path)
                         else:
                             print(f"Variant {variant_id}: Error encountered")
@@ -344,9 +408,10 @@ class Generator:
                         problem_variants.append({
                             'variant_num': variant_num,
                             'status': status,
-                            'path': variant_dir
+                            'path': variant_dir,
+                            'objective_direction': objective_direction,
+                            'optimal_value': optimal_value
                         })
-                            
                             
                         dict_temp = {
                             'id': id_i,
@@ -355,10 +420,27 @@ class Generator:
                             'ground_truth': ground_truth,
                             'code': code,
                             'code_excute_result': output,
-                            'status': status
+                            'status': status,
+                            'objective_direction': objective_direction,
+                            'optimal_value': optimal_value
                         }
                         df_temp = pd.DataFrame([dict_temp])
                         df_output = pd.concat([df_output, df_temp], ignore_index=True)
+                    
+                    # Determine consensus objective direction
+                    consensus_direction = None
+                    if objective_directions:
+                        # 如果所有变体的目标方向一致，则确定为目标方向
+                        if len(set(objective_directions)) == 1:
+                            consensus_direction = objective_directions[0]
+                        else:
+                            # 如果不一致，选择出现频率最高的
+                            from collections import Counter
+                            consensus_direction = Counter(objective_directions).most_common(1)[0][0]
+                    
+                    # Save objective direction to problem directory
+                    with open(os.path.join(problem_dir, "objective_direction.txt"), "w") as f:
+                        f.write(consensus_direction or "unknown")
                     
                     self.cache.append(str(id_i)) # save the id
                     cache_file.write(str(id_i) + "\n") # append the id in cache_file
@@ -379,15 +461,6 @@ class Generator:
         df_output.to_csv(os.path.join(self.output_path, 'all_results.csv'), index=False)
 
         cache_file.close()
-
-        # Calculate and save success statistics
-        success_stats = df_output.groupby(['id']).agg({
-            'status': lambda x: (x == 'Success').sum(),  # number of successful variants
-            'variant_id': 'count'  # total number of variants
-        }).reset_index()
-        success_stats.columns = ['id', 'successful_variants', 'total_variants']
-        success_stats['success_rate'] = success_stats['successful_variants'] / success_stats['total_variants']
-        success_stats.to_csv(os.path.join(self.output_path, 'success_statistics.csv'), index=False)
         
         print(f"\nVariant generation complete. Results saved to {self.output_path}")
 
@@ -398,6 +471,7 @@ class Revision:
         self.path = os.path.join(os.path.join(os.path.join(configs.output_path, configs.dataset), configs.g_llm_model), self.train_flag)
             
         self.max_iterations = configs.max_iterations # maximum iterations for variant
+        self.convergence_patience = getattr(configs, 'convergence_patience', 3)  # 连续多少轮一致才收敛，默认3轮
         self.temperature = configs.r_temperature
         self.llm_model = configs.r_llm_model
         self.api_key=configs.r_api_key
@@ -419,6 +493,49 @@ class Revision:
                     self.cache.append(line[:line.find('\n')])
         except Exception:
             self.cache = []
+
+    def extract_numerical_value(self, text):
+        """从文本中提取数值"""
+        if text is None:
+            return None
+        
+        # 首先尝试直接转换为浮点数
+        try:
+            return float(text.strip())
+        except ValueError:
+            pass
+        
+        # 使用正则表达式提取数值
+        pattern = r'-?\d+(?:\.\d+)?'
+        matches = re.findall(pattern, text)
+        
+        if matches:
+            try:
+                return float(matches[0])
+            except ValueError:
+                return None
+        
+        return None
+
+    def check_convergence(self, prev_value, curr_value, prev_code, curr_code, tolerance=1e-6):
+        """检查是否收敛（数值和代码都没有显著变化）"""
+        # 检查数值收敛
+        if prev_value is not None and curr_value is not None:
+            # 确保两个值都是数值类型
+            try:
+                prev_num = float(prev_value) if isinstance(prev_value, str) else prev_value
+                curr_num = float(curr_value) if isinstance(curr_value, str) else curr_value
+                if abs(prev_num - curr_num) < tolerance:
+                    return True
+            except (ValueError, TypeError):
+                pass
+        
+        # 检查代码收敛（简单的字符串比较）
+        if prev_code and curr_code:
+            if prev_code.strip() == curr_code.strip():
+                return True
+        
+        return False
 
     def extract_code(self, text):
         ind1 = text.find("=====")
@@ -484,10 +601,16 @@ class Revision:
             text (str): Text containing numerical value, e.g., "Optimal Value: 11000.0"
         
         Returns:
-            str or None: Extracted numerical value string, None if not found
+            float or None: Extracted numerical value as float, None if not found
         """
         if text is None:
             return None
+        
+        # First try direct conversion to float
+        try:
+            return float(text.strip())
+        except ValueError:
+            pass
         
         # Use regular expressions to extract numerical values
         import re
@@ -496,8 +619,11 @@ class Revision:
         matches = re.findall(pattern, text)
         
         if matches:
-            # Return the first numerical value found
-            return matches[0]
+            try:
+                # Return the first numerical value found as float
+                return float(matches[0])
+            except ValueError:
+                return None
         
         return None
 
@@ -740,8 +866,8 @@ class Revision:
         """Internal correctness check (not exposed to LLM)"""
         return self.compare_with_ground_truth(optimal_value, ground_truth)
 
-    async def refine_variant(self, base_variant_path, problem_description, ground_truth, max_iterations, variant_name):
-        """Improve a variant through multiple iterations"""
+    async def refine_variant(self, base_variant_path, problem_description, max_iterations, variant_name):
+        """Improve a variant through multiple iterations with convergence-based stopping"""
         
         # Get initial variant data
         variant_data = self.get_variant_data(base_variant_path)
@@ -754,6 +880,20 @@ class Revision:
         # Track latest iteration data for continued improvement
         current_variant_data = variant_data
         
+        # 修改：维护历史记录用于连续收敛检查
+        history = []  # 存储历史的(code, value)对
+        consecutive_same_count = 0  # 连续相同的轮数
+        
+        # Get initial values for convergence checking
+        initial_code = variant_data.get("code", "")
+        initial_value = None
+        if "optimal_value" in variant_data and variant_data["optimal_value"]:
+            initial_value = self.extract_numerical_value(variant_data["optimal_value"])
+        
+        # 将初始状态加入历史
+        history.append((initial_code, initial_value))
+        print(f"Initial state for {variant_name}: value = {initial_value}, patience = {self.convergence_patience}")
+        
         # Start improvement iterations
         for iteration in range(1, max_iterations + 1):
             print(f"Starting {variant_name} refinement iteration {iteration}/{max_iterations}")
@@ -763,7 +903,7 @@ class Revision:
             if not os.path.exists(iter_dir):
                 os.makedirs(iter_dir)
             
-            # Step 1: Multi-dimensional evaluation (without ground_truth)
+            # Step 1: Multi-dimensional evaluation
             print(f"  Step 1: Evaluating variant {variant_name} iteration {iteration}")
             evaluation_result = await self.evaluate_variant(
                 current_variant_data, problem_description, iteration
@@ -780,7 +920,7 @@ class Revision:
             with open(os.path.join(iter_dir, "evaluation_result.txt"), "w", encoding='utf-8') as f:
                 f.write(evaluation_result if evaluation_result is not None else "")
             
-            # Step 2: Generate improved code (without ground_truth)
+            # Step 2: Generate improved code
             print(f"  Step 2: Generating refined code for {variant_name} iteration {iteration}")
             code, response, refinement_prompt = await self.generate_refined_code(
                 evaluation_result, current_variant_data, problem_description, iteration
@@ -797,7 +937,7 @@ class Revision:
             with open(code_path, "w", encoding='utf-8') as f:
                 f.write(code)
             
-            # 步骤3: 执行代码
+            # Step 3: Execute code
             print(f"  Step 3: Executing refined code for {variant_name} iteration {iteration}")
             output, status = self.execute_code(code_path)
             
@@ -811,6 +951,14 @@ class Revision:
                 with open(os.path.join(iter_dir, "error.txt"), "w", encoding='utf-8') as f:
                     f.write(output)
                 print(f"    ❌ {variant_name} iteration {iteration} failed: Code execution error")
+                
+                # 失败的情况下，重置连续计数
+                consecutive_same_count = 0
+                history.append((code, None))  # 记录失败的状态
+                print(f"    🔄 {variant_name} iteration {iteration}: reset consecutive count due to failure")
+                # Update variant data for next iteration
+                current_variant_data = self.get_variant_data(iter_dir)
+                continue
             else:
                 print(f"    ✓ {variant_name} iteration {iteration} executed successfully")
                 
@@ -823,36 +971,61 @@ class Revision:
                     os.remove(ref_optimal_path)
                     
                     # Read optimal value
-                    optimal_value = self.read_optimal_value(ref_optimal_path)
+                    optimal_value = self.read_optimal_value(os.path.join(iter_dir, ref_optimal_path))
+                    curr_value = self.extract_numerical_value(optimal_value)
                     
-                    # Internal correctness check (use ground_truth but don't expose to LLM)
-                    if self.check_correctness_internal(optimal_value, ground_truth):
-                        print(f"✅ {variant_name} solved correctly in iteration {iteration}")
+                    # 修改：检查连续收敛
+                    current_state = (code, curr_value)
+                    
+                    # 检查是否与之前的状态相同
+                    if len(history) >= 1:
+                        prev_code, prev_value = history[-1]
+                        if self.check_convergence(prev_value, curr_value, prev_code, code):
+                            consecutive_same_count += 1
+                            print(f"    🔄 {variant_name} iteration {iteration}: consecutive same count = {consecutive_same_count}/{self.convergence_patience}")
+                        else:
+                            consecutive_same_count = 0
+                            print(f"    📊 {variant_name} iteration {iteration}: value = {curr_value} (different from previous, reset count)")
+                    
+                    history.append(current_state)
+                    
+                    # 检查是否达到连续收敛的要求
+                    if consecutive_same_count >= self.convergence_patience:
+                        print(f"🔄 {variant_name} converged in iteration {iteration} (no significant change for {self.convergence_patience} consecutive iterations)")
                         return {
-                            "status": "Solved",
+                            "status": "Converged",
                             "iterations": iteration,
                             "optimal_value": optimal_value,
-                            "ground_truth": ground_truth,
-                            "path": iter_dir
+                            "path": iter_dir,
+                            "convergence_reason": f"no_change_for_{self.convergence_patience}_iterations",
+                            "consecutive_same_count": consecutive_same_count,
+                            "5element_description": current_variant_data.get("5element_description", ""),
+                            "code": code,
+                            "evaluation_result": current_variant_data.get("evaluation_result", "")
                         }
-                    else:
-                        # Print debug information (but don't pass to LLM)
-                        extracted_optimal = self.extract_numerical_value(optimal_value)
-                        print(f"⚠️ {variant_name} iteration {iteration} produced incorrect result:")
-                        print(f"  Raw optimal: {optimal_value}")
-                        print(f"  Extracted optimal: {extracted_optimal}")
-                        print(f"  Ground truth: {ground_truth}")
+                    
+                    print(f"    📊 {variant_name} iteration {iteration}: value = {curr_value}")
                 else:
                     print(f"⚠️ {variant_name} iteration {iteration} did not produce ref_optimal_value.txt")
+                    consecutive_same_count = 0  # 重置计数
+                    history.append((code, None))  # 记录没有数值的状态
+                    print(f"    🔄 {variant_name} iteration {iteration}: reset consecutive count due to no optimal value")
             
             # Update variant data with current iteration results for next iteration
             current_variant_data = self.get_variant_data(iter_dir)
         
+        # If we reach here, we've exhausted all iterations without convergence
+        print(f"🔄 {variant_name} reached maximum iterations without convergence")
         return {
-            "status": "Not solved",
+            "status": "Max_iterations",
             "iterations": max_iterations,
-            "ground_truth": ground_truth,
-            "path": refinement_dir
+            "path": refinement_dir,
+            "convergence_reason": "max_iterations",
+            "consecutive_same_count": consecutive_same_count,
+            "5element_description": current_variant_data.get("5element_description", ""),
+            "code": current_variant_data.get("code", ""),
+            "evaluation_result": current_variant_data.get("evaluation_result", ""),
+            "optimal_value": current_variant_data.get("optimal_value", "")
         }
 
     def check_variant_correct(self, variant_path, ground_truth):
@@ -863,8 +1036,16 @@ class Revision:
             return self.compare_with_ground_truth(optimal_value, ground_truth)
         return False
 
+    def get_objective_direction(self, problem_dir):
+        """Read objective direction from file"""
+        objective_file = os.path.join(problem_dir, "objective_direction.txt")
+        if os.path.exists(objective_file):
+            with open(objective_file, 'r') as f:
+                return f.read().strip()
+        return None
+
     async def forward(self):
-        """Improve solutions for all problems in the base directory"""
+        """Improve solutions for all problems in the base directory with new aggregation strategy"""
         # Find all problem directories
         problem_dirs = [os.path.join(self.path, d) for d in os.listdir(self.path) 
                     if os.path.isdir(os.path.join(self.path, d)) and d.startswith("problem_")]
@@ -891,16 +1072,18 @@ class Revision:
                 if not os.path.exists(refinement_dir):
                     os.makedirs(refinement_dir)
                 
-                # Get problem description and ground truth
+                # Get problem description and objective direction
                 problem_description = self.get_problem_description(problem_dir)
-                ground_truth = self.get_ground_truth(problem_dir)
+                objective_direction = self.get_objective_direction(problem_dir)
                 
-                if not problem_description or ground_truth is None:
-                    print(f"Missing problem description or ground truth for problem {problem_id}")
+                if not problem_description:
+                    print(f"Missing problem description for problem {problem_id}")
                     pbar.update(1)
                     continue
                 
-                # Check if any original variants have already produced correct results
+                print(f"Objective direction: {objective_direction}")
+                
+                # Check variants directory
                 variants_dir = os.path.join(problem_dir, "variants")
                 if not os.path.exists(variants_dir):
                     print(f"No variants directory found for problem {problem_id}")
@@ -910,28 +1093,8 @@ class Revision:
                 variant_dirs = [os.path.join(variants_dir, d) for d in sorted(os.listdir(variants_dir))
                     if (os.path.isdir(os.path.join(variants_dir, d)) and "refinements" not in d)]
                 
-                solved = False
-                for variant_dir in variant_dirs:
-                    variant_name = os.path.basename(variant_dir)
-                    if self.check_variant_correct(variant_dir, ground_truth):
-                        print(f"✅ Problem {problem_id}, {variant_name} already solved correctly in first round")
-                        solved = True
-                        results.append({
-                        "problem_id": problem_id,
-                        "variant": variant_name,
-                        "status": "Solved in first round",
-                        "iterations": 0,
-                            "ground_truth": ground_truth
-                        })
-                        break
-                
-                if solved:
-                    self.cache.append(problem_id)
-                    pbar.update(1)
-                    continue
-                
-                # If no original variants produced correct results, improve each variant
-                print(f"No original variants solved problem {problem_id}. Refining all variants...")
+                # Process each variant independently (no early stopping)
+                print(f"Refining all {len(variant_dirs)} variants for problem {problem_id}...")
                 
                 # Track results for this problem
                 problem_results = []
@@ -941,11 +1104,10 @@ class Revision:
                     variant_name = os.path.basename(variant_dir)
                     print(f"\nRefining {variant_name} for problem {problem_id}")
                     
-                    # Improve this variant (pass ground_truth for internal evaluation, but don't pass to LLM)
+                    # Improve this variant with convergence-based stopping
                     refinement_result = await self.refine_variant(
                         variant_dir, 
                         problem_description, 
-                        ground_truth,  # for internal correctness check
                         self.max_iterations,
                         variant_name
                     )
@@ -957,13 +1119,7 @@ class Revision:
                     # Add to results
                     problem_results.append(refinement_result)
                     results.append(refinement_result)
-                    
-                    # If this variant is solved, we can terminate early
-                    if refinement_result["status"] == "Solved":
-                        print(f"✅ Problem {problem_id} solved by refining {variant_name}")
-                        solved = True
-                        break
-            
+                
                 self.cache.append(problem_id)
                 cache_file.write(problem_id + "\n") # append the id in cache_file
 
@@ -972,16 +1128,19 @@ class Revision:
                 problem_df = pd.DataFrame(problem_results)
                 problem_df.to_csv(summary_path, index=False)
                 
-                if not solved:
-                    print(f"❌ Problem {problem_id} not solved after refining all variants")
-                
                 # Update progress bar
                 pbar.update(1)
         
         cache_file.close()
         
         # Compile and save summary results
-        results_df = pd.DataFrame(results)
+        print(f"Debug: Total results collected: {len(results)}")
+        if results:
+            results_df = pd.DataFrame(results)
+            print(f"Debug: DataFrame created with {len(results_df)} rows and columns: {list(results_df.columns)}")
+        else:
+            results_df = pd.DataFrame()
+            print("Debug: No results collected, creating empty DataFrame")
         
         # If only one problem, save results to that problem's refinements directory
         # If multiple problems, save to experiment root directory
@@ -995,251 +1154,11 @@ class Revision:
         
         # Print summary information
         print("\nRefinement Summary:")
-        print(f"Total problems processed: {len(set(results_df['problem_id']))}")
-        print(f"Problems solved in first round: {len(results_df[results_df['status'] == 'Solved in first round'])}")
-        print(f"Problems solved in refinement: {len(results_df[results_df['status'] == 'Solved'])}")
-        problems_not_solved = set(results_df['problem_id']) - set(results_df[results_df['status'].isin(['Solved', 'Solved in first round'])]['problem_id'])
-        print(f"Problems not solved: {len(problems_not_solved)}")
-        return results_df
-
-
-class calculate_acc:
-    def __init__(self, configs):
-        self.train_flag = configs.train_flag
-        self.llm_model_path = configs.g_llm_model
-        self.path = os.path.join(os.path.join(os.path.join(configs.output_path, configs.dataset), configs.g_llm_model), self.train_flag)
-    
-    def read_optimal_value(self, file_path):
-        """Read optimal value from file"""
-        try:
-            if os.path.exists(file_path):
-                with open(file_path, 'r') as f:
-                    content = f.read().strip()
-                    return content
-            return None
-        except Exception as e:
-            print(f"Error reading optimal value: {e}")
-            return None
-
-    def get_ground_truth(self, problem_dir):
-        """Read ground truth from file"""
-        ground_truth_file = os.path.join(problem_dir, "ground_truth.txt")
-        if os.path.exists(ground_truth_file):
-            with open(ground_truth_file, 'r') as f:
-                content = f.read().strip()
-                return content
-        return None
-
-    def extract_numerical_value(self, text):
-        """Extract numerical value from text
-        
-        Args:
-            text (str): Text containing numerical value, e.g., "Optimal Value: 11000.0"
-        
-        Returns:
-            str or None: Extracted numerical value string, None if not found
-        """
-        if text is None:
-            return None
-        
-        # Use regular expressions to extract numerical values
-        pattern = r'-?\d+(?:\.\d+)?'
-        matches = re.findall(pattern, text)
-        
-        if matches:
-            # Return the first numerical value found
-            return matches[0]
-        
-        return None
-
-    def compare_with_ground_truth(self, value, ground_truth):
-        """Compare a value with ground truth"""
-        if value is None or ground_truth is None:
-            return False
-        
-        # Extract numerical values
-        extracted_value = self.extract_numerical_value(value)
-        extracted_ground_truth = ground_truth
-        
-        # If both can extract numerical values, perform numerical comparison
-        if extracted_value and extracted_ground_truth:
-            try:
-                value_float = float(extracted_value)
-                ground_truth_float = float(extracted_ground_truth)
-                
-                # For floating point numbers, use approximate equality
-                is_equal = abs(value_float - ground_truth_float) < 1e-6 * max(1, abs(ground_truth_float))
-                
-                if is_equal:
-                    print(f"✓ Numerical comparison: {value_float} ≈ {ground_truth_float}")
-                else:
-                    print(f"✗ Numerical comparison: {value_float} ≠ {ground_truth_float}")
-                    
-                return is_equal
-            except (ValueError, TypeError):
-                print(f"⚠️ Unable to convert extracted values to float: {extracted_value}, {extracted_ground_truth}")
-        
-        # If numerical extraction fails or conversion fails, fall back to text comparison
-        # First try to clean text (remove all whitespace and punctuation)
-        def clean_text(text):
-            if text is None:
-                return ""
-            return re.sub(r'[\s\.,;:!?]+', '', text.lower())
-        
-        cleaned_value = clean_text(value)
-        cleaned_ground_truth = clean_text(ground_truth)
-        
-        is_equal = cleaned_value == cleaned_ground_truth
-        if is_equal:
-            print(f"✓ Text comparison: cleaned text is identical")
+        if len(results_df) > 0 and 'problem_id' in results_df.columns:
+            print(f"Total problems processed: {len(set(results_df['problem_id']))}")
+            print(f"Variants converged: {len(results_df[results_df['status'] == 'Converged'])}")
+            print(f"Variants reached max iterations: {len(results_df[results_df['status'] == 'Max_iterations'])}")
         else:
-            print(f"✗ Text comparison: cleaned text is different")
-            print(f"  Value 1 (cleaned): {cleaned_value}")
-            print(f"  Value 2 (cleaned): {cleaned_ground_truth}")
+            print("No results to summarize")
         
-        return is_equal
-
-    def check_variant_correct(self, variant_path, ground_truth):
-        """Check if a variant produces correct results"""
-        optimal_path = os.path.join(variant_path, "ref_optimal_value.txt")
-        if os.path.exists(optimal_path):
-            optimal_value = self.read_optimal_value(optimal_path)
-            print(f"Comparing values: \n  Computed value: {optimal_value}\n  Ground truth: {ground_truth}")
-            
-            # Extract numerical values for information display
-            extracted_optimal = self.extract_numerical_value(optimal_value)
-            extracted_ground_truth = ground_truth
-            if extracted_optimal and extracted_ground_truth:
-                print(f"Extracted values: \n  Computed value: {extracted_optimal}\n  Ground truth: {extracted_ground_truth}")
-            
-            return self.compare_with_ground_truth(optimal_value, ground_truth)
-        return False
-
-    def forward(self):
-        """Calculate success rate for all problems"""
-        # Find all problem directories
-        problem_dirs = [os.path.join(self.path, d) for d in os.listdir(self.path) 
-                    if os.path.isdir(os.path.join(self.path, d)) and d.startswith("problem_")]
-        
-        results = []
-        
-        for problem_dir in tqdm(problem_dirs, desc="Calculating problem success rate"):
-            problem_id = os.path.basename(problem_dir).replace("problem_", "")
-            print(f"\nEvaluating problem {problem_id}")
-            
-            # Get ground truth
-            ground_truth = self.get_ground_truth(problem_dir)
-            
-            if ground_truth is None:
-                print(f"Problem {problem_id} missing ground truth")
-                results.append({
-                    "problem_id": problem_id,
-                    "solved": False,
-                    "reason": "missing ground truth"
-                })
-                continue
-            
-            # Check variants directory
-            variants_dir = os.path.join(problem_dir, "variants")
-            if not os.path.exists(variants_dir):
-                print(f"Problem {problem_id} variants directory not found")
-                results.append({
-                    "problem_id": problem_id,
-                    "solved": False,
-                    "reason": "no variants directory"
-                })
-                continue
-            
-            variant_dirs = [os.path.join(variants_dir, d) for d in sorted(os.listdir(variants_dir))
-                if os.path.isdir(os.path.join(variants_dir, d))]
-            
-            # A problem is considered solved if any variant produces the correct answer
-            problem_solved = False
-            
-            # First check original variants
-            for variant_dir in variant_dirs:
-                variant_name = os.path.basename(variant_dir)
-                print(f"Checking variant {variant_name}")
-                if self.check_variant_correct(variant_dir, ground_truth):
-                    print(f"✅ Problem {problem_id}, {variant_name} correctly solved in original round")
-                    problem_solved = True
-                    break
-            
-            # If original variants are not solved, check improvement iterations
-            if not problem_solved:
-                # Check if there is an improvement directory
-                refinements_dir = os.path.join(problem_dir, "refinements")
-                if os.path.exists(refinements_dir):
-                    # Check improvement directory for each variant
-                    variant_refinement_dirs = [d for d in os.listdir(refinements_dir) 
-                                            if os.path.isdir(os.path.join(refinements_dir, d)) and d.endswith("_refinements")]
-                    
-                    for variant_ref_name in variant_refinement_dirs:
-                        variant_ref_path = os.path.join(refinements_dir, variant_ref_name)
-                        print(f"Checking variant improvement {variant_ref_name}")
-                        
-                        # Check each iteration of this variant
-                        iteration_dirs = [os.path.join(variant_ref_path, d) for d in sorted(os.listdir(variant_ref_path))
-                                        if os.path.isdir(os.path.join(variant_ref_path, d)) and d.startswith("iteration_")]
-                        
-                        for iter_dir in iteration_dirs:
-                            iter_name = os.path.basename(iter_dir)
-                            print(f"Checking iteration {iter_name}")
-                            if self.check_variant_correct(iter_dir, ground_truth):
-                                variant_base_name = variant_ref_name.replace("_refinements", "")
-                                print(f"✅ Problem {problem_id} correctly solved in {iter_name} of {variant_base_name}")
-                                problem_solved = True
-                                break
-                        
-                        if problem_solved:
-                            break
-            
-            # Record results
-            results.append({
-                "problem_id": problem_id,
-                "solved": problem_solved,
-                "ground_truth": ground_truth
-            })
-            
-            if problem_solved:
-                print(f"✅ Problem {problem_id} solved")
-            else:
-                print(f"❌ Problem {problem_id} not solved")
-        
-        # Create summary dataframe
-        results_df = pd.DataFrame(results)
-        
-        # Save results
-        results_df.to_csv(os.path.join(self.path, "problem_success_rate.csv"), index=False)
-        
-        # Generate summary statistics
-        total_problems = len(results_df)
-        solved_problems = len(results_df[results_df['solved'] == True])
-        success_rate = solved_problems / total_problems * 100 if total_problems > 0 else 0
-        
-        print("\nSuccess Rate Statistics:")
-        print(f"Total problems: {total_problems}")
-        print(f"Solved problems: {solved_problems}")
-        print(f"Success rate: {success_rate:.2f}%")
-        
-        # Generate detailed report
-        report_path = os.path.join(self.path, "success_rate_report.txt")
-        with open(report_path, "w") as f:
-            f.write("# Optimization Problem Success Rate Report\n\n")
-            f.write(f"Total problems: {total_problems}\n")
-            f.write(f"Solved problems: {solved_problems}\n")
-            f.write(f"Success rate: {success_rate:.2f}%\n\n")
-            
-            f.write("## Solved Problems List\n\n")
-            for _, row in results_df[results_df['solved'] == True].iterrows():
-                f.write(f"- Problem {row['problem_id']}\n")
-            
-            f.write("\n## Unsolved Problems List\n\n")
-            for _, row in results_df[results_df['solved'] == False].iterrows():
-                f.write(f"- Problem {row['problem_id']}\n")
-        
-        return {
-            "total_problems": total_problems,
-            "solved_problems": solved_problems,
-            "success_rate": success_rate
-        }
+        return results_df

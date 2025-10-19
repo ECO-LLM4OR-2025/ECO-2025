@@ -1,0 +1,5 @@
+Status: Success
+
+Restricted license - for non-production use only - expires 2026-11-23
+Set parameter MIPGap to value 0
+Set parameter LogToConsole to value 0

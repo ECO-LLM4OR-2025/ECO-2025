@@ -1,0 +1,69 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+# Data for months 1–3
+months   = [1, 2, 3]
+p_buy    = {1: 8,  2: 6,  3: 9}   # purchase prices
+p_sell   = {1: 9,  2: 8,  3: 10}  # selling prices
+I0       = 200                   # initial inventory at start of month 1
+capacity = 500                   # maximum warehouse capacity
+
+try:
+    # Create model
+    m = gp.Model("quarterly_inventory")
+    m.ModelSense = GRB.MAXIMIZE
+    m.setParam('OutputFlag', 0)   # turn off solver output
+
+    # Decision variables
+    # q[t]: units purchased at beginning of month t
+    # s[t]: units sold during month t
+    # I[t]: inventory at end of month t
+    q = m.addVars(months, lb=0, vtype=GRB.INTEGER, name="q")
+    s = m.addVars(months, lb=0, vtype=GRB.INTEGER, name="s")
+    I = m.addVars(months, lb=0, vtype=GRB.INTEGER, name="I")
+
+    # Inventory balance constraints
+    for t in months:
+        if t == 1:
+            m.addConstr(I0 + q[t] - s[t] == I[t], name="inv_bal_1")
+        else:
+            m.addConstr(I[t-1] + q[t] - s[t] == I[t], name=f"inv_bal_{t}")
+
+    # Capacity constraint immediately after purchase:
+    # beginning inventory + purchases ≤ warehouse capacity
+    for t in months:
+        if t == 1:
+            m.addConstr(I0 + q[t] <= capacity, name="cap_pre_1")
+        else:
+            m.addConstr(I[t-1] + q[t] <= capacity, name=f"cap_pre_{t}")
+
+    # (Optional) enforce end‐of‐month inventory ≤ capacity for clarity
+    m.addConstrs((I[t] <= capacity for t in months), name="cap_end")
+
+    # Objective: maximize total profit = revenue from sales minus purchase costs
+    revenue      = gp.quicksum(p_sell[t] * s[t] for t in months)
+    purchaseCost = gp.quicksum(p_buy[t]  * q[t] for t in months)
+    m.setObjective(revenue - purchaseCost)
+
+    # Optimize
+    m.optimize()
+
+    # Write only the numeric optimal value to file
+    with open('ref_optimal_value.txt', 'w') as f:
+        if m.status == GRB.OPTIMAL:
+            f.write(f"{m.objVal}")
+        else:
+            # no optimal solution found
+            f.write("")
+
+except gp.GurobiError as e:
+    # On Gurobi failure, write blank
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write("")
+    print("Gurobi error:", e)
+
+except Exception as ex:
+    # On any other runtime error, write blank
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write("")
+    print("Unexpected error:", ex)

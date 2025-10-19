@@ -1,0 +1,75 @@
+import gurobipy as gp
+from gurobipy import GRB
+import sys
+
+def main():
+    try:
+        # -------------------------
+        # 1. Define problem data
+        # -------------------------
+        months = [1, 2, 3]
+        buy_price  = {1: 8, 2: 6, 3: 9}    # purchase cost per unit
+        sell_price = {1: 9, 2: 8, 3: 10}   # selling price per unit
+        capacity   = 500                   # max units in warehouse
+        initial_inv = 200                  # inventory at end of year 0
+
+        # -------------------------
+        # 2. Initialize model
+        # -------------------------
+        model = gp.Model("quarterly_planning")
+        model.setParam('OutputFlag', 0)   # turn off solver output
+
+        # -------------------------
+        # 3. Decision variables
+        # -------------------------
+        # x[t] = units purchased in month t
+        x = model.addVars(months, name="purchase", lb=0.0, vtype=GRB.CONTINUOUS)
+        # y[t] = units sold in month t
+        y = model.addVars(months, name="sale", lb=0.0, vtype=GRB.CONTINUOUS)
+        # inv[t] = inventory at end of month t
+        inv = model.addVars(months, name="inv", lb=0.0, ub=capacity, vtype=GRB.CONTINUOUS)
+
+        # -------------------------
+        # 4. Constraints
+        # -------------------------
+        # Inventory balance for each month
+        for t in months:
+            if t == 1:
+                prev_inv = initial_inv
+            else:
+                prev_inv = inv[t-1]
+            model.addConstr(prev_inv + x[t] - y[t] == inv[t],
+                            name=f"flow_month_{t}")
+
+        # Warehouse capacity is already enforced by inv[t] upper bound
+
+        # -------------------------
+        # 5. Objective function
+        # -------------------------
+        profit = gp.quicksum(sell_price[t] * y[t] - buy_price[t] * x[t]
+                             for t in months)
+        model.setObjective(profit, GRB.MAXIMIZE)
+
+        # -------------------------
+        # 6. Solve
+        # -------------------------
+        model.optimize()
+
+        # -------------------------
+        # 7. Handle solution status
+        # -------------------------
+        if model.status == GRB.OPTIMAL:
+            opt_val = model.objVal
+            # Save only the numeric optimal value
+            with open('ref_optimal_value.txt', 'w') as fout:
+                fout.write(f"{opt_val}")
+        else:
+            raise Exception(f"Model did not solve to optimality (status {model.status})")
+
+    except gp.GurobiError as gu_err:
+        print(f"Gurobi error: {gu_err}", file=sys.stderr)
+    except Exception as ex:
+        print(f"Runtime error: {ex}", file=sys.stderr)
+
+if __name__ == "__main__":
+    main()

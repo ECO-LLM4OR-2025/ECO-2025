@@ -1,0 +1,97 @@
+import gurobipy as gp
+from gurobipy import GRB
+
+def main():
+    try:
+        # -------------------------
+        # Problem Data
+        # -------------------------
+        manufacturers    = ["A", "B", "C"]
+        chairs_per_order = {"A": 15, "B": 10, "C": 10}
+        cost_per_chair   = {"A": 50, "B": 45, "C": 40}
+        min_chairs       = 100
+        max_chairs       = 500
+
+        # Compute derived parameters
+        cost_per_order = {m: chairs_per_order[m] * cost_per_chair[m]
+                          for m in manufacturers}
+        # Big-M on orders (max possible orders per manufacturer)
+        max_orders = {m: max_chairs // chairs_per_order[m]
+                      for m in manufacturers}
+
+        # -------------------------
+        # Model Initialization
+        # -------------------------
+        model = gp.Model("furniture_ordering")
+        model.Params.OutputFlag = 0  # Silent mode
+
+        # Decision Variables
+        x = model.addVars(manufacturers,
+                          vtype=GRB.INTEGER, lb=0,
+                          name="num_orders")
+        y = model.addVars(manufacturers,
+                          vtype=GRB.BINARY,
+                          name="use_flag")
+
+        # -------------------------
+        # Constraints
+        # -------------------------
+        # 1) Total chairs between min and max
+        total_chairs = gp.quicksum(chairs_per_order[m] * x[m]
+                                   for m in manufacturers)
+        model.addConstr(total_chairs >= min_chairs, name="min_total_chairs")
+        model.addConstr(total_chairs <= max_chairs, name="max_total_chairs")
+
+        # 2) Link x and y: if y[m]=0 → x[m]=0; if y[m]=1 → x[m] ≥ 1
+        for m in manufacturers:
+            model.addConstr(x[m] <= max_orders[m] * y[m],
+                            name=f"link_up_{m}")
+            model.addConstr(x[m] >= y[m],
+                            name=f"link_low_{m}")
+
+        # 3) Logical implications with explicit chair counts
+        #    If A is used then at least 10 chairs from B
+        model.addConstr(chairs_per_order["B"] * x["B"]
+                        >= 10 * y["A"],
+                        name="A_implies_10chairs_from_B")
+        #    If B is used then at least 10 chairs from C
+        model.addConstr(chairs_per_order["C"] * x["C"]
+                        >= 10 * y["B"],
+                        name="B_implies_10chairs_from_C")
+
+        # 4) Standard logical chain (ensures ordering flags align)
+        model.addConstr(y["A"] <= y["B"], name="A_implies_B_flag")
+        model.addConstr(y["B"] <= y["C"], name="B_implies_C_flag")
+
+        # -------------------------
+        # Objective: Minimize total cost
+        # -------------------------
+        total_cost = gp.quicksum(cost_per_order[m] * x[m]
+                                 for m in manufacturers)
+        model.setObjective(total_cost, GRB.MINIMIZE)
+
+        # -------------------------
+        # Solve
+        # -------------------------
+        model.optimize()
+
+        # -------------------------
+        # Retrieve and save optimal value
+        # -------------------------
+        if model.Status == GRB.OPTIMAL:
+            opt_val = int(model.ObjVal)
+            try:
+                with open("ref_optimal_value.txt", "w") as f:
+                    f.write(str(opt_val))
+            except IOError as io_err:
+                print(f"Error writing output file: {io_err}")
+        else:
+            print(f"Optimization ended with status {model.Status}")
+
+    except gp.GurobiError as ge:
+        print(f"Gurobi error: {ge}")
+    except Exception as ex:
+        print(f"Unexpected error: {ex}")
+
+if __name__ == "__main__":
+    main()

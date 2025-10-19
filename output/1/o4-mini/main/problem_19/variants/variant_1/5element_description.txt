@@ -1,0 +1,27 @@
+Sets:
+- M = {A, B, C}, the set of manufacturers.
+
+Variables:
+- x_A, x_B, x_C ∈ ℤ₊: number of orders from manufacturers A, B, C.
+- y_A, y_B, y_C ∈ {0,1}: 1 if we place at least one order from A, B, C, respectively; 0 otherwise.
+
+Parameters:
+- chairs_per_order: a_A = 15, a_B = 10, a_C = 10
+- cost_per_order: c_A = 15*50 = 750, c_B = 10*45 = 450, c_C = 10*40 = 400
+- L = 100 (minimum total chairs)
+- U = 500 (maximum total chairs)
+
+Constraints:
+1. Total chairs between 100 and 500:
+   15 x_A + 10 x_B + 10 x_C ≥ 100  
+   15 x_A + 10 x_B + 10 x_C ≤ 500
+2. Link order counts to binaries (big-M linking):
+   x_A ≤ ⌊U/15⌋ y_A,   x_A ≥ y_A  
+   x_B ≤ ⌊U/10⌋ y_B,    x_B ≥ y_B  
+   x_C ≤ ⌊U/10⌋ y_C,    x_C ≥ y_C  
+3. Logical implications:
+   If we order from A then from B: y_A ≤ y_B  
+   If we order from B then from C: y_B ≤ y_C  
+
+Objective:
+- Minimize total cost = 750 x_A + 450 x_B + 400 x_C

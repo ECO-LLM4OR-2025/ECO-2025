@@ -1,0 +1,248 @@
+status,iterations,path,convergence_reason,consecutive_same_count,5element_description,code,evaluation_result,optimal_value,problem_id,variant
+Max_iterations,3,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_0_refinements,max_iterations,0,,"import gurobipy as gp
+from gurobipy import GRB, GurobiError
+
+# -----------------------------
+# Data Definition
+# -----------------------------
+# Time periods
+T = [1, 2, 3]
+
+# Purchase prices by month (Yuan/unit)
+b = {1: 8, 2: 6, 3: 9}
+
+# Selling prices by month (Yuan/unit)
+p = {1: 9, 2: 8, 3: 10}
+
+# Forecasted demand caps (units) – assumed since original problem gives no explicit demand limit
+D = {1: 180, 2: 220, 3: 210}
+
+# Holding cost per unit held from month t to t+1 (Yuan/unit/month)
+# This penalizes stockpiling and curbs inter-month arbitrage
+h = {1: 1.0, 2: 1.0, 3: 0.0}
+
+# Initial inventory at time 0
+s0 = 200
+
+# Warehouse capacity (units)
+S_max = 500
+
+# Cost of the initial stock – we assume it was acquired at the month-1 purchase price
+# This is a constant offset in the objective (does not affect decision variables)
+initial_inventory_cost = b[1] * s0
+
+try:
+    # -----------------------------
+    # Model Initialization
+    # -----------------------------
+    model = gp.Model(""Q1_Purchasing_Sales_Plan"")
+    model.Params.OutputFlag = 0   # turn off Gurobi solver output
+
+    # -----------------------------
+    # Decision Variables
+    # -----------------------------
+    # x[t]: units purchased in month t, integer
+    x = model.addVars(T, vtype=GRB.INTEGER, lb=0, name=""x"")
+
+    # y[t]: units sold in month t, integer, cannot exceed forecasted demand
+    y = model.addVars(T, vtype=GRB.INTEGER, lb=0, ub=D, name=""y"")
+
+    # s[t]: end-of-month inventory, continuous, cannot exceed capacity
+    s = model.addVars(T, vtype=GRB.CONTINUOUS, lb=0, ub=S_max, name=""s"")
+
+    # -----------------------------
+    # Constraints
+    # -----------------------------
+    # Inventory flow balance
+    # Month 1
+    model.addConstr(
+        s[1] == s0 + x[1] - y[1],
+        name=""inventory_balance_1""
+    )
+    # Months 2 and 3
+    for t in [2, 3]:
+        model.addConstr(
+            s[t] == s[t-1] + x[t] - y[t],
+            name=f""inventory_balance_{t}""
+        )
+
+    # Terminal inventory must be zero
+    model.addConstr(s[3] == 0, name=""terminal_inventory_zero"")
+
+    # -----------------------------
+    # Objective Function
+    # -----------------------------
+    # Maximize: revenue - purchase cost - holding cost - initial inventory cost
+    revenue    = gp.quicksum(p[t] * y[t]       for t in T)
+    purchase   = gp.quicksum(b[t] * x[t]       for t in T)
+    holding    = gp.quicksum(h[t] * s[t]       for t in T)
+    constant   = initial_inventory_cost
+
+    model.setObjective(
+        revenue - purchase - holding - constant,
+        GRB.MAXIMIZE
+    )
+
+    # -----------------------------
+    # Optimize
+    # -----------------------------
+    model.optimize()
+
+    # -----------------------------
+    # Output Optimal Value
+    # -----------------------------
+    if model.Status == GRB.OPTIMAL:
+        with open('ref_optimal_value.txt', 'w') as fout:
+            # Write only the numeric optimal objective
+            fout.write(f""{model.ObjVal:.6f}"")
+    else:
+        raise GurobiError(f""Optimization ended with status {model.Status}"")
+
+except GurobiError as e:
+    print(f""Gurobi error: {e}"")
+except Exception as e:
+    print(f""General exception: {e}"")",,1190.000000,16,variant_0
+Max_iterations,3,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_1_refinements,max_iterations,0,,"import gurobipy as gp
+from gurobipy import GRB
+
+# Data for months 1–3
+months   = [1, 2, 3]
+p_buy    = {1: 8,  2: 6,  3: 9}   # purchase prices
+p_sell   = {1: 9,  2: 8,  3: 10}  # selling prices
+I0       = 200                   # initial inventory at start of month 1
+capacity = 500                   # maximum warehouse capacity
+
+try:
+    # Create model
+    m = gp.Model(""quarterly_inventory"")
+    m.ModelSense = GRB.MAXIMIZE
+    m.setParam('OutputFlag', 0)   # turn off solver output
+
+    # Decision variables
+    # q[t]: units purchased at beginning of month t
+    # s[t]: units sold during month t
+    # I[t]: inventory at end of month t
+    q = m.addVars(months, lb=0, vtype=GRB.INTEGER, name=""q"")
+    s = m.addVars(months, lb=0, vtype=GRB.INTEGER, name=""s"")
+    I = m.addVars(months, lb=0, vtype=GRB.INTEGER, name=""I"")
+
+    # Inventory balance constraints
+    for t in months:
+        if t == 1:
+            m.addConstr(I0 + q[t] - s[t] == I[t], name=""inv_bal_1"")
+        else:
+            m.addConstr(I[t-1] + q[t] - s[t] == I[t], name=f""inv_bal_{t}"")
+
+    # Capacity constraint immediately after purchase:
+    # beginning inventory + purchases ≤ warehouse capacity
+    for t in months:
+        if t == 1:
+            m.addConstr(I0 + q[t] <= capacity, name=""cap_pre_1"")
+        else:
+            m.addConstr(I[t-1] + q[t] <= capacity, name=f""cap_pre_{t}"")
+
+    # (Optional) enforce end‐of‐month inventory ≤ capacity for clarity
+    m.addConstrs((I[t] <= capacity for t in months), name=""cap_end"")
+
+    # Objective: maximize total profit = revenue from sales minus purchase costs
+    revenue      = gp.quicksum(p_sell[t] * s[t] for t in months)
+    purchaseCost = gp.quicksum(p_buy[t]  * q[t] for t in months)
+    m.setObjective(revenue - purchaseCost)
+
+    # Optimize
+    m.optimize()
+
+    # Write only the numeric optimal value to file
+    with open('ref_optimal_value.txt', 'w') as f:
+        if m.status == GRB.OPTIMAL:
+            f.write(f""{m.objVal}"")
+        else:
+            # no optimal solution found
+            f.write("""")
+
+except gp.GurobiError as e:
+    # On Gurobi failure, write blank
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write("""")
+    print(""Gurobi error:"", e)
+
+except Exception as ex:
+    # On any other runtime error, write blank
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write("""")
+    print(""Unexpected error:"", ex)",,4100.0,16,variant_1
+Max_iterations,3,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_2_refinements,max_iterations,0,,"import gurobipy as gp
+from gurobipy import GRB
+import sys
+
+def main():
+    try:
+        # -------------------------
+        # 1. Define problem data
+        # -------------------------
+        months = [1, 2, 3]
+        buy_price  = {1: 8, 2: 6, 3: 9}    # purchase cost per unit
+        sell_price = {1: 9, 2: 8, 3: 10}   # selling price per unit
+        capacity   = 500                   # max units in warehouse
+        initial_inv = 200                  # inventory at end of year 0
+
+        # -------------------------
+        # 2. Initialize model
+        # -------------------------
+        model = gp.Model(""quarterly_planning"")
+        model.setParam('OutputFlag', 0)   # turn off solver output
+
+        # -------------------------
+        # 3. Decision variables
+        # -------------------------
+        # x[t] = units purchased in month t
+        x = model.addVars(months, name=""purchase"", lb=0.0, vtype=GRB.CONTINUOUS)
+        # y[t] = units sold in month t
+        y = model.addVars(months, name=""sale"", lb=0.0, vtype=GRB.CONTINUOUS)
+        # inv[t] = inventory at end of month t
+        inv = model.addVars(months, name=""inv"", lb=0.0, ub=capacity, vtype=GRB.CONTINUOUS)
+
+        # -------------------------
+        # 4. Constraints
+        # -------------------------
+        # Inventory balance for each month
+        for t in months:
+            if t == 1:
+                prev_inv = initial_inv
+            else:
+                prev_inv = inv[t-1]
+            model.addConstr(prev_inv + x[t] - y[t] == inv[t],
+                            name=f""flow_month_{t}"")
+
+        # Warehouse capacity is already enforced by inv[t] upper bound
+
+        # -------------------------
+        # 5. Objective function
+        # -------------------------
+        profit = gp.quicksum(sell_price[t] * y[t] - buy_price[t] * x[t]
+                             for t in months)
+        model.setObjective(profit, GRB.MAXIMIZE)
+
+        # -------------------------
+        # 6. Solve
+        # -------------------------
+        model.optimize()
+
+        # -------------------------
+        # 7. Handle solution status
+        # -------------------------
+        if model.status == GRB.OPTIMAL:
+            opt_val = model.objVal
+            # Save only the numeric optimal value
+            with open('ref_optimal_value.txt', 'w') as fout:
+                fout.write(f""{opt_val}"")
+        else:
+            raise Exception(f""Model did not solve to optimality (status {model.status})"")
+
+    except gp.GurobiError as gu_err:
+        print(f""Gurobi error: {gu_err}"", file=sys.stderr)
+    except Exception as ex:
+        print(f""Runtime error: {ex}"", file=sys.stderr)
+
+if __name__ == ""__main__"":
+    main()",,,16,variant_2

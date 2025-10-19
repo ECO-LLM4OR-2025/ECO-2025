@@ -1,0 +1,54 @@
+import gurobipy as gp
+from gurobipy import GRB, GurobiError
+
+# Data
+T      = [1, 2, 3]                             # Months 1–3
+b      = {1: 8,  2: 6,  3: 9}                  # Purchase prices
+p      = {1: 9,  2: 8,  3: 10}                 # Selling prices
+D      = {1: 180, 2: 220, 3: 210}              # Forecasted demand caps
+s0     = 200                                  # Initial inventory
+S_max  = 500                                  # Warehouse capacity
+
+try:
+    # Create model
+    model = gp.Model("Purchasing_Sales_Plan")
+    model.Params.OutputFlag = 0               # Silence solver output
+
+    # Decision variables
+    # x[t]: units purchased in month t (no explicit upper bound; implied by demand & inventory constraints)
+    x = model.addVars(T, lb=0.0, name="purchase")
+    # y[t]: units sold in month t, cannot exceed demand D[t]
+    y = model.addVars(T, lb=0.0, ub=D, name="sales")
+    # s[t]: end-of-month inventory, cannot exceed warehouse capacity
+    s = model.addVars(T, lb=0.0, ub=S_max, name="inventory")
+
+    # Inventory balance constraints
+    for t in T:
+        if t == 1:
+            model.addConstr(s[1] == s0 + x[1] - y[1],
+                            name="inv_balance_1")
+        else:
+            model.addConstr(s[t] == s[t-1] + x[t] - y[t],
+                            name=f"inv_balance_{t}")
+
+    # No leftover inventory after month 3
+    model.addConstr(s[3] == 0, name="terminal_inventory_zero")
+
+    # Objective: maximize total profit = sum_t (p[t]*y[t] - b[t]*x[t])
+    profit = gp.quicksum(p[t] * y[t] - b[t] * x[t] for t in T)
+    model.setObjective(profit, GRB.MAXIMIZE)
+
+    # Solve model
+    model.optimize()
+
+    # Write only the optimal value to file
+    if model.Status == GRB.OPTIMAL:
+        with open('ref_optimal_value.txt', 'w') as fout:
+            fout.write(str(model.ObjVal))
+    else:
+        raise GurobiError("Model did not reach optimality.")
+
+except GurobiError as e:
+    print(f"Gurobi error: {e}")
+except Exception as e:
+    print(f"General exception: {e}")

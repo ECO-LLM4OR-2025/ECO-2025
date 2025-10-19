@@ -1,5 +1,5 @@
 import argparse
-from model import Generator, Revision, calculate_acc
+from model import Generator, Revision
 import numpy as np
 import random
 import asyncio
@@ -22,27 +22,32 @@ def get_parser(train_flag, g_llm_model, r_llm_model, g_temperature, g_variants_p
 
     # generator_llm_model
     parser.add_argument('--g_llm_model',type=str, required=False, default=g_llm_model, help="LLM model name, options: [gpt-4o-mini, claude-3-7-sonnet-20250219, deepseek-r1-250528, o4-mini]")
-    parser.add_argument('--g_api_key',type=str, required=False, default="sk-sJxxxxxxxxj", help="LLM API key")
+    parser.add_argument('--g_api_key',type=str, required=False, default="sk-sJxxxxxxxn4wgZlMlYTUBiNbGYIUWoqCEPAu1Jwdm7j", help="LLM API key")
     parser.add_argument('--g_base_url',type=str, required=False, default="https://api.chatanywhere.tech/v1", help="base_url")
     parser.add_argument('--g_temperature',type=float, required=False, default=g_temperature, help="temperature parameter for LLM")
     parser.add_argument('--g_top_p',type=float, required=False, default=0.92, help="top_p parameter for LLM")
-    parser.add_argument('--g_temperature_step',type=float, required=False, default=0.01, help="temperature step increment for variants")
+    parser.add_argument('--g_temperature_step',type=float, required=False, default=0.05, help="temperature step increment for variants")
     parser.add_argument('--g_top_p_step',type=float, required=False, default=0.01, help="top_p step increment for variants")
     parser.add_argument('--g_variants_per_problem',type=int, required=False, default=g_variants_per_problem, help="number of generated samples")
 
     # revision_llm_model
     parser.add_argument('--r_llm_model',type=str, required=False, default=r_llm_model, help="LLM model name, options: [gpt-4o-mini, claude-3-7-sonnet-20250219, deepseek-r1-250528, o4-mini]")
-    parser.add_argument('--r_api_key',type=str, required=False, default="sk-sJxxxxxxxxj", help="LLM API key")
+    parser.add_argument('--r_api_key',type=str, required=False, default="sk-sJxxxxxxxxxxxxEQbn4wgZlMlYTUBiNbGYIUWoqCEPAu1Jwdm7j", help="LLM API key")
     parser.add_argument('--r_base_url',type=str, required=False, default="https://api.chatanywhere.tech/v1", help="base_url")
     parser.add_argument('--r_temperature',type=float, required=False, default=0.5, help="temperature parameter for LLM")
     parser.add_argument('--max_iterations',type=int, required=False, default=3, help="maximum iterations for single variant")
+    parser.add_argument('--convergence_patience',type=int, required=False, default=3, help="number of consecutive iterations with no change required for convergence")
 
 
     return parser
 
 async def main_experiment(llm_model): # main experiment 
-    # datasets = ["1","2","complexor", "industryor", "industryor_easy", "industryor_medium", "industryor_hard", "mamo_easy", "mamo_complex", "nl4opt", "nlp4lp"]
-    datasets = ["2"] # 1 and 2 are the toy test datasets
+    # datasets = ["complexor", "industryor_easy", "industryor_medium", "industryor_hard",  "mamo_complex", "nl4opt","nlp4lp", "optmath","optibench"]
+    # datasets = [ "industryor_medium"]
+    # datasets = [ "industryor_hard"]
+    # datasets = [ "industryor_easy"]
+    # datasets = [ "industryor_medium", "industryor_hard","industryor_easy"]
+    datasets = ["1"] # 1 and 2 are the toy test datasets
     for dataset in datasets: 
         print(f"Now training {dataset} with {llm_model}")
         mode = "main" # IO, CoT, main
@@ -53,8 +58,7 @@ async def main_experiment(llm_model): # main experiment
         if mode == "main":
             revision = Revision(args)
             await revision.forward()
-        get_acc = calculate_acc(args)
-        get_acc.forward()
+        
 
 async def main():
     fix_seed = 2021
@@ -62,8 +66,8 @@ async def main():
     np.random.seed(fix_seed)
 
     # print("==========Start doing additional experiment 1 to find the best llm_model==========")
+    # best_llm_model = ['o4-mini', 'o4-mini']
     best_llm_model = ['o4-mini', 'o4-mini']
-    # ['gpt-4o-mini', 'gpt-4o-mini']
     # ['claude-3-7-sonnet-20250219', 'claude-3-7-sonnet-20250219']
     # ['deepseek-r1-250528', 'deepseek-r1-250528']、
     # ['o4-mini', 'o4-mini']

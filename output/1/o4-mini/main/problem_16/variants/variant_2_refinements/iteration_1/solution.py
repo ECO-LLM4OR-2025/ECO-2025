@@ -1,0 +1,82 @@
+import gurobipy as gp
+from gurobipy import GRB
+import sys
+
+try:
+    # Data
+    T = [1, 2, 3]                     # Planning months
+    c = {1: 8, 2: 6, 3: 9}            # Purchase prices
+    s = {1: 9, 2: 8, 3: 10}           # Selling prices
+    I0 = 200                          # Initial inventory
+    Cap = 500                         # Warehouse capacity
+
+    # Monthly maximum demand (must be provided by the user; here are example values)
+    # Replace these with the real demand forecasts for each month
+    D = {1: 300, 2: 400, 3: 350}
+
+    # Create model
+    m = gp.Model("Purchasing_and_Sales_Plan")
+    m.setParam('OutputFlag', 0)       # Turn off solver output for cleanliness
+
+    # Decision variables
+    P = m.addVars(T, name="P", lb=0.0, vtype=GRB.CONTINUOUS)  # Units purchased in month t
+    S = m.addVars(T, name="S", lb=0.0, vtype=GRB.CONTINUOUS)  # Units sold in month t
+    I = m.addVars(T, name="I", lb=0.0, vtype=GRB.CONTINUOUS)  # End-of-month inventory
+
+    # Constraints
+    for t in T:
+        # Inventory balance: end inventory = beginning inventory + purchases - sales
+        if t == 1:
+            m.addConstr(I[t] == I0 + P[t] - S[t],
+                        name="inv_balance_1")
+        else:
+            m.addConstr(I[t] == I[t-1] + P[t] - S[t],
+                        name=f"inv_balance_{t}")
+
+        # Warehouse capacity (end of month)
+        m.addConstr(I[t] <= Cap,
+                    name=f"capacity_end_{t}")
+
+        # Instantaneous capacity: beginning inventory + purchases cannot exceed Cap
+        if t == 1:
+            m.addConstr(I0 + P[t] <= Cap,
+                        name=f"capacity_instant_{t}")
+        else:
+            m.addConstr(I[t-1] + P[t] <= Cap,
+                        name=f"capacity_instant_{t}")
+
+        # Demand constraint: cannot sell more than demand
+        m.addConstr(S[t] <= D[t],
+                    name=f"demand_limit_{t}")
+
+    # Objective: maximize total profit = revenue - cost
+    profit = gp.quicksum(s[t] * S[t] - c[t] * P[t] for t in T)
+    m.setObjective(profit, GRB.MAXIMIZE)
+
+    # Optimize
+    m.optimize()
+
+    # Check solver status
+    if m.status == GRB.OPTIMAL:
+        opt_val = m.objVal
+    else:
+        # If infeasible or unbounded, record a special flag
+        opt_val = None
+
+    # Write only the optimal value (or 'NoSolution' if infeasible/unbounded)
+    with open('ref_optimal_value.txt', 'w') as f:
+        if opt_val is None:
+            f.write("NoSolution")
+        else:
+            f.write(str(opt_val))
+
+except gp.GurobiError as e:
+    # Handle Gurobi-specific errors
+    sys.stderr.write(f"Gurobi error: {str(e)}\n")
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write("Error")
+except Exception as e:
+    # Handle any other errors
+    sys.stderr.write(f"Unexpected error: {str(e)}\n")
+    with open('ref_optimal_value.txt', 'w') as f:
+        f.write("Error")

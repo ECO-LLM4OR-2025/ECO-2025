@@ -1,2 +1,0 @@
-ERROR: The Gurobi Python package 'gurobipy' is not installed or could not be imported.
-Please ensure that Gurobi is installed, licensed, and that 'gurobipy' is on your PYTHONPATH.

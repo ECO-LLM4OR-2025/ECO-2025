@@ -1,0 +1,128 @@
+You are an expert operations research analyst. Based on the detailed diagnostic evaluation below, please generate an improved Gurobi solution for this optimization problem.
+
+    ## Problem Description:
+    A marketing company is planning to allocate resources between two projects: $X$ and $Y$. The total resource allocation for both projects cannot exceed 1000 units due to budget constraints. Project $X$ requires a minimum excess of 200 units over project $Y$ to ensure its success. Each unit of resource allocation costs \$50 for project $X$ and \$30 for project $Y$. Both projects can only be allocated whole numbers of resources **(integer, ≥ 0)** due to the indivisible nature of these resources. Moreover, the maximum resource allocation for project X is 700 units **(integer, 0 to 700)** and for project Y is 500 units **(integer, 0 to 500)** due to operational constraints.
+
+Given these conditions, what is the minimum cost (in dollars) required for resource allocation that satisfies all given constraints? Provide your answer rounded to the nearest dollar. 
+
+Modeling Type: Integer Programming.
+
+    ## Current Iteration: 3
+
+    ## Diagnostic Evaluation Results:
+    **DIMENSION 1 - Definition Consistency:**  
+Diagnosis: The code’s notation and parameters match the written problem exactly.  
+Issues Found: None  
+Confidence: High  
+
+**DIMENSION 2 - Structural Soundness:**  
+Diagnosis:  
+- Objective (minimize 50·x_X + 30·x_Y) correctly reflects “minimize total cost.”  
+- The two constraints (x_X + x_Y ≤ 1000 and x_X − x_Y ≥ 200) cover all stated requirements.  
+- Variable bounds (0 ≤ x_X ≤ 700, 0 ≤ x_Y ≤ 500, integer) exactly mirror the problem.  
+- Model is set up as a pure integer program, as required.  
+Issues Found: None  
+Confidence: High  
+
+**DIMENSION 3 - Numerical Validity:**  
+Diagnosis:  
+- The solver finds x_X = 200, x_Y = 0 with total cost 200·50 = $10,000, which is indeed the smallest cost that satisfies all constraints.  
+- There is no infeasibility or unboundedness.  
+- The result is mathematically correct under the given formulation.  
+Issues Found: None  
+Confidence: High  
+
+**OVERALL ASSESSMENT:**  
+Primary Issues: None – the model is fully correct as stated.  
+Recommended Actions: If a more balanced or realistic allocation is desired (for example, to ensure project Y receives some resources), introduce an additional constraint such as x_Y ≥ L for some L > 0. Otherwise, no changes are needed.
+
+    ## Current 5element to Improve:
+    No 5element_description
+
+    ## Current Solution to Improve:
+    ```python
+    import gurobipy as gp
+from gurobipy import GRB
+
+# Problem parameters
+COST_X           = 50    # cost per unit for project X ($)
+COST_Y           = 30    # cost per unit for project Y ($)
+RESOURCE_CAPACITY = 1000  # maximum total resource units available
+EXCESS           = 200   # minimum required difference x_X - x_Y
+MAX_X            = 700   # upper bound on units for project X
+MAX_Y            = 500   # upper bound on units for project Y
+
+OUTPUT_FILE = 'ref_optimal_value.txt'
+
+def main():
+    try:
+        # Create a new model
+        model = gp.Model("Resource_Allocation")
+        
+        # Suppress Gurobi output (set to 1 to see log)
+        model.Params.OutputFlag = 0
+        
+        # Decision variables: integer allocations for X and Y
+        x_X = model.addVar(vtype=GRB.INTEGER, lb=0, ub=MAX_X, name="x_X")
+        x_Y = model.addVar(vtype=GRB.INTEGER, lb=0, ub=MAX_Y, name="x_Y")
+        
+        # Constraints
+        # 1) Total allocation cannot exceed the resource capacity
+        model.addConstr(x_X + x_Y <= RESOURCE_CAPACITY, name="capacity_constraint")
+        # 2) Project X must exceed project Y by at least EXCESS units
+        model.addConstr(x_X - x_Y >= EXCESS, name="excess_constraint")
+        
+        # Objective: minimize total cost
+        model.setObjective(COST_X * x_X + COST_Y * x_Y, GRB.MINIMIZE)
+        
+        # Optimize
+        model.optimize()
+        
+        # Check solution status
+        if model.Status != GRB.OPTIMAL:
+            raise gp.GurobiError(f"Solver ended with status {model.Status}, expected OPTIMAL.")
+        
+        # Extract integer objective value
+        optimal_cost = int(model.ObjVal + 0.5)
+        
+        # Write only the numeric result to the output file
+        with open(OUTPUT_FILE, 'w') as f:
+            f.write(str(optimal_cost))
+    
+    except gp.GurobiError as gbe:
+        print(f"Gurobi Error: {gbe}")
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+
+if __name__ == "__main__":
+    main()
+    ```
+
+    ## Instructions for Improvement:
+
+    Based on the diagnostic evaluation above, please generate a completely new and improved Gurobi code that addresses ALL identified issues. 
+
+    **Requirements:**
+    1. Address each issue identified in the diagnostic evaluation
+    2. Ensure the code can run successfully without errors
+    3. Save the final optimal value to 'ref_optimal_value.txt' (value only, no extra text)
+    4. Use proper Gurobi syntax and best practices
+    5. Include appropriate error handling
+    6. Add clear comments explaining key modeling decisions
+
+    **Code Generation Format:**
+    First, provide a brief explanation of the key improvements you're making, then provide the complete code between ===== markers:
+
+    Key Improvements:
+    [Explain the main changes you're making to address the identified issues]
+
+    =====
+    import gurobipy as gp
+    from gurobipy import GRB
+
+    # Your improved code here
+    # Make sure to save only the optimal value to 'ref_optimal_value.txt'
+    =====
+
+    Please ensure the generated code is complete, executable, and addresses all the issues identified in the diagnostic evaluation.
+    

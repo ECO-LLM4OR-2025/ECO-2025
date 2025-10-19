@@ -1,0 +1,4 @@
+variant_num,status,path,objective_direction,optimal_value
+0,Success,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_0,maximize,
+1,Success,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_1,maximize,No optimal solution found.
+2,Success,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_2,maximize,No optimal solution found.

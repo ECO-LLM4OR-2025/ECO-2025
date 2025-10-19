@@ -1,0 +1,25 @@
+Sets:
+- T = {1, 2, 3} (months in the first quarter)
+
+Variables (all continuous, nonnegative):
+- q_t ≥ 0: quantity purchased at the beginning of month t, ∀ t ∈ T
+- s_t ≥ 0: quantity sold during month t, ∀ t ∈ T
+- I_t ≥ 0: inventory at the end of month t, ∀ t ∈ T
+
+Parameters:
+- p_buy_t: purchasing price in month t, where p_buy_1=8, p_buy_2=6, p_buy_3=9
+- p_sell_t: selling price in month t, where p_sell_1=9, p_sell_2=8, p_sell_3=10
+- I_0 = 200: initial inventory at the end of last year
+- C = 500: warehouse capacity (max inventory)
+
+Constraints:
+1. Inventory balance for each t ∈ T:
+   I_{t-1} + q_t − s_t = I_t
+   (with I_0 given = 200)
+2. Capacity limit for each t ∈ T:
+   I_t ≤ C
+3. Nonnegativity:
+   q_t ≥ 0, s_t ≥ 0, I_t ≥ 0  ∀ t ∈ T
+
+Objective:
+Maximize total profit = Σ_{t∈T} [ p_sell_t * s_t − p_buy_t * q_t ]

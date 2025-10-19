@@ -1,0 +1,28 @@
+Sets:
+- I = {A, B, C} (manufacturers)
+
+Variables:
+- x[i] for i in I: integer, number of orders from manufacturer i, x[i] ≥ 0.
+- y[i] for i in I: binary, 1 if we place at least one order from manufacturer i, 0 otherwise.
+
+Parameters:
+- c[A] = 750, c[B] = 450, c[C] = 400  (cost per order from each manufacturer)
+- s[A] = 15,  s[B] = 10,  s[C] = 10   (chairs per order)
+- min_chairs = 100
+- max_chairs = 500
+- M[A] = 34   (big-M for A; ≥ max feasible orders = ⌈500/15⌉)
+- M[B] = 50   (big-M for B; ≥ max feasible orders = 500/10)
+- M[C] = 50   (big-M for C; ≥ max feasible orders = 500/10)
+
+Constraints:
+1. Linking order counts to binaries:
+   for each i in I:
+      x[i] ≥ y[i]
+      x[i] ≤ M[i] * y[i]
+2. If A is used then B is used: y[A] ≤ y[B]
+3. If B is used then C is used: y[B] ≤ y[C]
+4. Total chairs lower bound: Σ_{i in I} s[i] * x[i] ≥ min_chairs
+5. Total chairs upper bound: Σ_{i in I} s[i] * x[i] ≤ max_chairs
+
+Objective:
+- Minimize total cost = Σ_{i in I} c[i] * x[i]
