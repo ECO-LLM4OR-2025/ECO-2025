@@ -1,4 +1,4 @@
 variant_num,status,path,objective_direction,optimal_value
-0,Success,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_19/variants/variant_0,minimize,4000.0
-1,Success,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_19/variants/variant_1,minimize,4000.0
-2,Success,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_19/variants/variant_2,minimize,4000.0
+0,Success,/root/eco/ECO-2025-v3-lyh/output/1/o4-mini/main/problem_19/variants/variant_0,minimize,4000.0
+1,Success,/root/eco/ECO-2025-v3-lyh/output/1/o4-mini/main/problem_19/variants/variant_1,minimize,4000.0
+2,Success,/root/eco/ECO-2025-v3-lyh/output/1/o4-mini/main/problem_19/variants/variant_2,minimize,4000.0

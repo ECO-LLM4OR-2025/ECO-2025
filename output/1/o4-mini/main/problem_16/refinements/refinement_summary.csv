@@ -1,5 +1,5 @@
 status,iterations,path,convergence_reason,consecutive_same_count,5element_description,code,evaluation_result,optimal_value,problem_id,variant
-Max_iterations,3,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_0_refinements,max_iterations,0,,"import gurobipy as gp
+Max_iterations,3,/root/eco/ECO-2025-v3-lyh/output/1/o4-mini/main/problem_16/variants/variant_0_refinements,max_iterations,0,,"import gurobipy as gp
 from gurobipy import GRB, GurobiError
 
 # -----------------------------
@@ -102,7 +102,7 @@ except GurobiError as e:
     print(f""Gurobi error: {e}"")
 except Exception as e:
     print(f""General exception: {e}"")",,1190.000000,16,variant_0
-Max_iterations,3,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_1_refinements,max_iterations,0,,"import gurobipy as gp
+Max_iterations,3,/root/eco/ECO-2025-v3-lyh/output/1/o4-mini/main/problem_16/variants/variant_1_refinements,max_iterations,0,,"import gurobipy as gp
 from gurobipy import GRB
 
 # Data for months 1–3
@@ -171,7 +171,7 @@ except Exception as ex:
     with open('ref_optimal_value.txt', 'w') as f:
         f.write("""")
     print(""Unexpected error:"", ex)",,4100.0,16,variant_1
-Max_iterations,3,/root/eco/ECO-2025-v3-wjx/output/1/o4-mini/main/problem_16/variants/variant_2_refinements,max_iterations,0,,"import gurobipy as gp
+Max_iterations,3,/root/eco/ECO-2025-v3-lyh/output/1/o4-mini/main/problem_16/variants/variant_2_refinements,max_iterations,0,,"import gurobipy as gp
 from gurobipy import GRB
 import sys
 
