@@ -29,6 +29,11 @@ ECO implements a two-stage framework for optimization modeling:
    - Leverages solver feedback for targeted corrections
    - Iteratively refines solutions until convergence or maximum iterations
 
+3. **Enhanced Solution Selection**:
+   - Implements rule-based selection with unit correction
+   - Analyzes solution reasonableness, execution status, and numerical validity
+   - Groups and ranks solutions based on consistency across original and refined variants
+
 ### Key Features
 
 - 🎯 **Zero-Shot Framework**: Eliminates the need for task-specific data or fine-tuning, improving generalizability and reducing deployment costs
